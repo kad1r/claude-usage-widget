@@ -1,0 +1,44 @@
+{
+  "name": "claude-usage-app",
+  "version": "1.0.0",
+  "description": "Claude API Usage Tracker - System Tray App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.claude.usage-tracker",
+    "productName": "Claude Usage",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "chart.js",
+      "gauge.js",
+      "index.html",
+      "styles.css",
+      "icon.ico"
+    ],
+    "win": {
+      "icon": "icon.ico",
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "shortcutName": "Claude Usage"
+    }
+  },
+  "devDependencies": {
+    "electron": "^41.0.2",
+    "electron-builder": "^26.8.1"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:pbs.twimg.com)",
+      "Bash(which node:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebSearch",
+      "Bash(cd:*)",
+      "Bash(git clone:*)",
+      "WebFetch(domain:cdn.dribbble.com)",
+      "Bash(find:*)"
+    ]
+  }
+}
