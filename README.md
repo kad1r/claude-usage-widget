@@ -8,6 +8,12 @@ A lightweight Windows system tray application that tracks your Claude AI usage i
 
 ---
 
+<p align="center">
+  <img src="screenshot.png" alt="Claude Usage Dashboard" width="380">
+</p>
+
+---
+
 ## Features
 
 - **Real-time usage gauges** — 5-hour and 7-day usage windows displayed as visual gauge charts
