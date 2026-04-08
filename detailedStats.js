@@ -18,7 +18,8 @@
         btn.classList.add('active');
 
         document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-        document.getElementById(`tab-content-${tab}`).style.display = 'flex';
+        const content = document.getElementById(`tab-content-${tab}`);
+        if (content) content.style.display = 'flex';
 
         if (tab === 'detayli') {
           loadDetailedStats();
@@ -173,7 +174,8 @@
     const textColor = getChartTextColor();
     const labels = modelRows.map(r => shortModelName(r.model));
     const data   = modelRows.map(r => (r.input || 0) + (r.output || 0));
-    const colors = ['rgba(59,130,246,0.8)', 'rgba(34,197,94,0.8)', 'rgba(168,85,247,0.8)', 'rgba(251,146,60,0.8)'];
+    const palette = ['rgba(59,130,246,0.8)', 'rgba(34,197,94,0.8)', 'rgba(168,85,247,0.8)', 'rgba(251,146,60,0.8)', 'rgba(239,68,68,0.8)', 'rgba(20,184,166,0.8)'];
+    const colors = modelRows.map((_, i) => palette[i % palette.length]);
 
     if (chartModel) chartModel.destroy();
     chartModel = new window.Chart(canvas, {
@@ -228,9 +230,9 @@
       <tr>
         <td title="${escHtml(s.project_name || '')}">${escHtml(s.project_name || '—')}</td>
         <td>${escHtml(shortModelName(s.model))}</td>
-        <td>${s.durationMinutes > 0 ? s.durationMinutes + 'm' : '—'}</td>
-        <td>${s.turn_count || 0}</td>
-        <td>$${(s.cost || 0).toFixed(3)}</td>
+        <td>${escHtml(String(s.durationMinutes > 0 ? s.durationMinutes + 'm' : '—'))}</td>
+        <td>${escHtml(String(s.turn_count || 0))}</td>
+        <td>$${escHtml(String((s.cost || 0).toFixed(3)))}</td>
       </tr>
     `).join('');
   }
@@ -242,10 +244,10 @@
     tbody.innerHTML = modelRows.map(r => `
       <tr>
         <td>${escHtml(shortModelName(r.model))}</td>
-        <td>${r.turns || 0}</td>
-        <td>${formatNumber(r.input || 0)}</td>
-        <td>${formatNumber(r.output || 0)}</td>
-        <td>$${(r.cost || 0).toFixed(3)}</td>
+        <td>${escHtml(String(r.turns || 0))}</td>
+        <td>${escHtml(String(formatNumber(r.input || 0)))}</td>
+        <td>${escHtml(String(formatNumber(r.output || 0)))}</td>
+        <td>$${escHtml(String((r.cost || 0).toFixed(3)))}</td>
       </tr>
     `).join('');
   }

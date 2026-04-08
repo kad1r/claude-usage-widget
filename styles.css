@@ -761,4 +761,4 @@ body:not(.dark) .detail-kpi-value { color: #000; }
 body:not(.dark) .detail-kpi-label { color: rgba(0,0,0,0.5); }
 body:not(.dark) .detail-table td { color: #000; }
 body:not(.dark) .detail-table th { color: rgba(0,0,0,0.5); }
-body.light .detail-card-title { color: rgba(0,0,0,0.5); }
+body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
