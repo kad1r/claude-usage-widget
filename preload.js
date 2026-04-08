@@ -13,5 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getLaunchAtLogin: () => ipcRenderer.invoke('get-launch-at-login'),
   getTheme: () => ipcRenderer.invoke('get-theme'),
   onThemeChanged: (callback) => ipcRenderer.on('theme-changed', (_event, isDark) => callback(isDark)),
-  quit: () => ipcRenderer.invoke('quit-app')
+  quit: () => ipcRenderer.invoke('quit-app'),
+  scanLocalUsage: () => ipcRenderer.invoke('scan-local-usage'),
+  getDetailedStats: (filters) => ipcRenderer.invoke('get-detailed-stats', filters),
+  getAvailableModels: () => ipcRenderer.invoke('get-available-models')
 });
