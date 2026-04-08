@@ -183,6 +183,7 @@
       data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 1 }] },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
           legend: { position: 'bottom', labels: { color: textColor, font: { size: 9 }, boxWidth: 10 } }
         }
@@ -208,6 +209,7 @@
       options: {
         indexAxis: 'y',
         responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
           x: { ticks: { color: textColor, font: { size: 9 } }, grid: { color: gridColor } },

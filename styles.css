@@ -719,6 +719,14 @@ body {
 
 .detail-two-col .detail-card {
   margin-bottom: 0;
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-two-col .detail-card canvas {
+  flex: 1;
+  min-height: 0;
 }
 
 .detail-table-wrap {
