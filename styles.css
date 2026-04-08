@@ -722,6 +722,8 @@ body {
   height: 150px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .detail-two-col .detail-card canvas {
