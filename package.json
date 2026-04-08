@@ -25,6 +25,9 @@
       "styles.css",
       "icon.ico"
     ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*"
+    ],
     "win": {
       "icon": "icon.ico",
       "target": "nsis",
