@@ -75,75 +75,81 @@ function sessionIdFromPath(filePath) {
 }
 
 function scanFile(db, filePath) {
-  const stat = fs.statSync(filePath);
-  const mtime = Math.floor(stat.mtimeMs);
+  const doScan = db.transaction(() => {
+    const stat = fs.statSync(filePath);
+    const mtime = Math.floor(stat.mtimeMs);
 
-  const existing = db.prepare('SELECT mtime, lines FROM processed_files WHERE path = ?').get(filePath);
-  if (existing && existing.mtime === mtime) return;
+    const existing = db.prepare('SELECT mtime, lines FROM processed_files WHERE path = ?').get(filePath);
+    if (existing && existing.mtime === mtime) return;
 
-  const content = fs.readFileSync(filePath, 'utf8');
-  const lines = content.split('\n').filter(l => l.trim());
+    // Delete existing turns for this session before re-inserting (handles file growth)
+    db.prepare('DELETE FROM turns WHERE session_id = ?').run(sessionIdFromPath(filePath));
 
-  const sessionId = sessionIdFromPath(filePath);
-  const projectName = projectNameFromPath(filePath);
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n').filter(l => l.trim());
 
-  let firstTimestamp = null;
-  let lastTimestamp = null;
-  let model = null;
-  let turnCount = 0;
-  let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheWrite = 0;
+    const sessionId = sessionIdFromPath(filePath);
+    const projectName = projectNameFromPath(filePath);
 
-  const insertTurn = db.prepare(`
-    INSERT OR IGNORE INTO turns (session_id, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
+    let firstTimestamp = null;
+    let lastTimestamp = null;
+    let model = null;
+    let turnCount = 0;
+    let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheWrite = 0;
 
-  for (const line of lines) {
-    let record;
-    try { record = JSON.parse(line); } catch (e) { continue; }
+    const insertTurn = db.prepare(`
+      INSERT INTO turns (session_id, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
 
-    if (record.type !== 'assistant') continue;
-    const usage = record.message?.usage;
-    if (!usage) continue;
+    for (const line of lines) {
+      let record;
+      try { record = JSON.parse(line); } catch (e) { continue; }
 
-    const ts = record.timestamp || record.message?.timestamp || null;
-    const m  = record.message?.model || null;
-    const input     = usage.input_tokens || 0;
-    const output    = usage.output_tokens || 0;
-    const cacheRead = usage.cache_read_input_tokens || 0;
-    const cacheWrite= usage.cache_creation_input_tokens || 0;
+      if (record.type !== 'assistant') continue;
+      const usage = record.message?.usage;
+      if (!usage) continue;
 
-    if (ts) {
-      if (!firstTimestamp || ts < firstTimestamp) firstTimestamp = ts;
-      if (!lastTimestamp  || ts > lastTimestamp)  lastTimestamp  = ts;
+      const ts = record.timestamp || record.message?.timestamp || null;
+      const m  = record.message?.model || null;
+      const input     = usage.input_tokens || 0;
+      const output    = usage.output_tokens || 0;
+      const cacheRead = usage.cache_read_input_tokens || 0;
+      const cacheWrite= usage.cache_creation_input_tokens || 0;
+
+      if (ts) {
+        if (!firstTimestamp || ts < firstTimestamp) firstTimestamp = ts;
+        if (!lastTimestamp  || ts > lastTimestamp)  lastTimestamp  = ts;
+      }
+      if (m) model = m;
+
+      totalInput     += input;
+      totalOutput    += output;
+      totalCacheRead += cacheRead;
+      totalCacheWrite+= cacheWrite;
+      turnCount++;
+
+      if (ts) {
+        insertTurn.run(sessionId, ts, m, input, output, cacheRead, cacheWrite);
+      }
     }
-    if (m) model = m;
 
-    totalInput     += input;
-    totalOutput    += output;
-    totalCacheRead += cacheRead;
-    totalCacheWrite+= cacheWrite;
-    turnCount++;
-
-    if (ts) {
-      insertTurn.run(sessionId, ts, m, input, output, cacheRead, cacheWrite);
+    if (turnCount === 0) {
+      db.prepare('INSERT OR REPLACE INTO processed_files (path, mtime, lines) VALUES (?, ?, ?)').run(filePath, mtime, lines.length);
+      return;
     }
-  }
 
-  if (turnCount === 0) {
+    db.prepare(`
+      INSERT OR REPLACE INTO sessions
+        (session_id, project_name, first_timestamp, last_timestamp, model, turn_count,
+         total_input_tokens, total_output_tokens, total_cache_read, total_cache_creation)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(sessionId, projectName, firstTimestamp, lastTimestamp, model, turnCount,
+           totalInput, totalOutput, totalCacheRead, totalCacheWrite);
+
     db.prepare('INSERT OR REPLACE INTO processed_files (path, mtime, lines) VALUES (?, ?, ?)').run(filePath, mtime, lines.length);
-    return;
-  }
-
-  db.prepare(`
-    INSERT OR REPLACE INTO sessions
-      (session_id, project_name, first_timestamp, last_timestamp, model, turn_count,
-       total_input_tokens, total_output_tokens, total_cache_read, total_cache_creation)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(sessionId, projectName, firstTimestamp, lastTimestamp, model, turnCount,
-         totalInput, totalOutput, totalCacheRead, totalCacheWrite);
-
-  db.prepare('INSERT OR REPLACE INTO processed_files (path, mtime, lines) VALUES (?, ?, ?)').run(filePath, mtime, lines.length);
+  });
+  doScan();
 }
 
 function getAllJsonlFiles(dir) {
