@@ -2,6 +2,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, scree
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const scanner = require('./scanner');
 
 let tray = null;
 let mainWindow = null;
@@ -133,6 +134,11 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.dock?.hide?.();
+
+  // Scan local JSONL files on startup
+  scanner.scan();
+  // Re-scan every 5 minutes
+  setInterval(() => scanner.scan(), 5 * 60 * 1000);
 
   const icon = createTrayIcon();
   tray = new Tray(icon);
@@ -383,6 +389,25 @@ nativeTheme.on('updated', () => {
 
 // IPC: Quit
 ipcMain.handle('quit-app', () => app.quit());
+
+// IPC: Local JSONL stats
+ipcMain.handle('scan-local-usage', () => scanner.scan());
+
+ipcMain.handle('get-detailed-stats', (_, filters) => {
+  try {
+    return { success: true, data: scanner.queryStats(filters) };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('get-available-models', () => {
+  try {
+    return scanner.getAvailableModels();
+  } catch (e) {
+    return [];
+  }
+});
 
 app.on('window-all-closed', () => {
   // Keep running in tray
