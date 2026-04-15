@@ -23,7 +23,8 @@
       "gauge.js",
       "index.html",
       "styles.css",
-      "icon.ico"
+      "icon.ico",
+      "providers/**/*"
     ],
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**/*"

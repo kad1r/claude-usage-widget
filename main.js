@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, screen, shell, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -35,23 +35,53 @@ function ensureDataDir() {
   }
 }
 
-// Credentials
+// Credentials — encrypted via OS keychain (safeStorage / DPAPI / Keychain)
 function saveCredentials(creds) {
   ensureDataDir();
-  fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(creds, null, 2));
+  const json = JSON.stringify(creds);
+  if (safeStorage.isEncryptionAvailable()) {
+    fs.writeFileSync(CREDENTIALS_PATH, safeStorage.encryptString(json));
+  } else {
+    fs.writeFileSync(CREDENTIALS_PATH, json);
+  }
 }
 
 function loadCredentials() {
   try {
-    if (fs.existsSync(CREDENTIALS_PATH)) {
-      return JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+    if (!fs.existsSync(CREDENTIALS_PATH)) return null;
+    const data = fs.readFileSync(CREDENTIALS_PATH);
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        return JSON.parse(safeStorage.decryptString(data));
+      } catch {
+        // Migration: file is old plain-text JSON — re-save encrypted
+        const creds = JSON.parse(data.toString('utf8'));
+        saveCredentials(creds);
+        return creds;
+      }
     }
-  } catch (e) {}
-  return null;
+    return JSON.parse(data.toString('utf8'));
+  } catch (e) {
+    return null;
+  }
 }
 
 function deleteCredentials() {
   try { fs.unlinkSync(CREDENTIALS_PATH); } catch (e) {}
+}
+
+const ALLOWED_EXTERNAL_ORIGINS = ['https://claude.ai', 'https://platform.claude.com'];
+function safeOpenExternal(url) {
+  try {
+    const { origin } = new URL(url);
+    if (!ALLOWED_EXTERNAL_ORIGINS.includes(origin)) {
+      console.warn('[openExternal] blocked:', url);
+      return;
+    }
+  } catch {
+    return;
+  }
+  shell.openExternal(url);
 }
 
 // History
@@ -137,6 +167,24 @@ function createWindow() {
   });
 }
 
+async function scanAllProviders() {
+  let db;
+  try {
+    db = scanner.openDb();
+    for (const provider of registry.getAll()) {
+      try {
+        await provider.scanLocal(db);
+      } catch (e) {
+        console.error(`[scan] ${provider.id} failed:`, e.message);
+      }
+    }
+  } catch (e) {
+    console.error('[scanAllProviders]', e.message);
+  } finally {
+    db?.close();
+  }
+}
+
 app.whenReady().then(() => {
   app.dock?.hide?.();
 
@@ -148,10 +196,10 @@ app.whenReady().then(() => {
   registry.register(new CursorProvider());
   claudeProvider.setAuthorizedFetch(authorizedFetch);
 
-  // Scan local JSONL files on startup
-  scanner.scan();
+  // Scan local files for all providers on startup
+  scanAllProviders();
   // Re-scan every 5 minutes
-  setInterval(() => scanner.scan(), 5 * 60 * 1000);
+  setInterval(scanAllProviders, 5 * 60 * 1000);
 
   const icon = createTrayIcon();
   tray = new Tray(icon);
@@ -193,7 +241,7 @@ ipcMain.handle('start-oauth', () => {
   });
 
   const url = `${AUTHORIZE_URL}?${params.toString()}`;
-  shell.openExternal(url);
+  safeOpenExternal(url);
   return true;
 });
 
@@ -404,7 +452,7 @@ nativeTheme.on('updated', () => {
 ipcMain.handle('quit-app', () => app.quit());
 
 // IPC: Local JSONL stats
-ipcMain.handle('scan-local-usage', () => scanner.scan());
+ipcMain.handle('scan-local-usage', () => scanAllProviders());
 
 ipcMain.handle('get-detailed-stats', (_, filters) => {
   try {

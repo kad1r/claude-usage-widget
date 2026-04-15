@@ -87,6 +87,8 @@ function showDashboard() {
   initProviderTabs();
 }
 
+let allProviderQuotas = [];
+
 async function initProviderTabs() {
   // Only show tabs if 2+ providers are available
   let providers;
@@ -107,16 +109,15 @@ async function initProviderTabs() {
   summaryEl.style.display = 'block';
 
   // Fetch all quota data for summary bar
-  let quotas = [];
   try {
-    quotas = await window.electronAPI.fetchAllProvidersQuota();
+    allProviderQuotas = await window.electronAPI.fetchAllProvidersQuota();
   } catch (e) { console.warn('[initProviderTabs] quota fetch failed:', e); }
 
   // Build summary bar items
   const summaryItemsEl = document.getElementById('provider-summary-items');
   summaryItemsEl.innerHTML = '';
   for (const p of available) {
-    const quota = quotas.find(q => q.provider === p.id);
+    const quota = allProviderQuotas.find(q => q.provider === p.id);
     const utilization = quota?.quota?.session?.utilization ?? quota?.quota?.weekly?.utilization;
     const item = document.createElement('div');
     item.className = 'provider-summary-item';
@@ -144,11 +145,165 @@ async function initProviderTabs() {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.provider-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      // Future: show/hide provider-specific gauge panels
-      // For now just visually switch the active tab
+      switchToProvider(p.id);
     });
     tabsEl.appendChild(btn);
   }
+}
+
+async function switchToProvider(providerId) {
+  const gaugeRow     = document.getElementById('claude-gauge-row');
+  const infoPanel    = document.getElementById('provider-quota-info');
+  const extraSection = document.getElementById('extra-section');
+  const modelSection = document.getElementById('model-section');
+  const chartTitle   = document.getElementById('chart-section-title');
+
+  if (providerId === 'claude') {
+    if (gaugeRow)     gaugeRow.style.display = '';
+    if (extraSection) extraSection.style.display = extraSection.dataset.savedDisplay || 'none';
+    if (modelSection) modelSection.style.display = modelSection.dataset.savedDisplay || 'none';
+    if (infoPanel)    infoPanel.style.display = 'none';
+    if (chartTitle)   chartTitle.textContent = 'Last 7 Days';
+    updateChart();
+    return;
+  }
+
+  // Non-Claude provider — save and hide Claude-specific sections
+  if (gaugeRow) gaugeRow.style.display = 'none';
+  if (extraSection) {
+    extraSection.dataset.savedDisplay = extraSection.style.display;
+    extraSection.style.display = 'none';
+  }
+  if (modelSection) {
+    modelSection.dataset.savedDisplay = modelSection.style.display;
+    modelSection.style.display = 'none';
+  }
+
+  // Fetch local stats for this provider (last 7 days)
+  let dailyRows = [], summary = null;
+  try {
+    const result = await window.electronAPI.getDetailedStats({ provider: providerId, days: 7 });
+    if (result.success) {
+      dailyRows = result.data.dailyRows || [];
+      summary   = result.data.summary   || null;
+    }
+  } catch (e) { console.warn('[switchToProvider] stats fetch failed:', e); }
+
+  // Update chart title and draw token chart
+  if (chartTitle) chartTitle.textContent = 'Son 7 Gün (Token)';
+  renderProviderTokenChart(dailyRows);
+
+  // Build info panel
+  if (infoPanel) {
+    infoPanel.style.display = 'block';
+    infoPanel.innerHTML = '';
+
+    // Quota rows (if this provider has quota API data)
+    const quota = allProviderQuotas.find(q => q.provider === providerId);
+    if (quota && !quota.error) {
+      if (quota.quota?.session) infoPanel.appendChild(buildQuotaRow('Session', quota.quota.session.utilization, quota.quota.session.resetsAt));
+      if (quota.quota?.weekly)  infoPanel.appendChild(buildQuotaRow('7-Day',   quota.quota.weekly.utilization,  quota.quota.weekly.resetsAt));
+      if (quota.quota?.models?.length) {
+        for (const m of quota.quota.models) infoPanel.appendChild(buildQuotaRow(m.name, m.utilization, null));
+      }
+    }
+
+    // Local scan summary stats
+    if (summary && (summary.sessionCount || summary.totalTurns || summary.totalCost)) {
+      const statsEl = document.createElement('div');
+      statsEl.className = 'provider-local-stats';
+      const items = [
+        { label: 'Oturumlar', value: String(summary.sessionCount || 0) },
+        { label: 'Turnlar',   value: formatStatNum(summary.totalTurns || 0) },
+        { label: 'Maliyet',   value: '$' + (summary.totalCost || 0).toFixed(2) },
+      ];
+      for (const item of items) {
+        const el = document.createElement('div');
+        el.className = 'provider-stat-item';
+        const lbl = document.createElement('span');
+        lbl.className = 'provider-stat-label';
+        lbl.textContent = item.label;
+        const val = document.createElement('span');
+        val.className = 'provider-stat-value';
+        val.textContent = item.value;
+        el.appendChild(lbl);
+        el.appendChild(val);
+        statsEl.appendChild(el);
+      }
+      infoPanel.appendChild(statsEl);
+    }
+
+    if (!infoPanel.children.length) {
+      const msg = document.createElement('div');
+      msg.className = 'provider-info-msg';
+      msg.textContent = 'Bu provider için veri bulunamadı.';
+      infoPanel.appendChild(msg);
+    }
+  }
+}
+
+function renderProviderTokenChart(dailyRows) {
+  if (!dailyRows.length) {
+    chart.setData({ labels: [], datasets: [], yMax: 10 });
+    chartLegend.innerHTML = '';
+    return;
+  }
+  const labels     = dailyRows.map(r => r.day ? r.day.slice(5) : '');
+  const inputData  = dailyRows.map(r => Math.round((r.input  || 0) / 1000));
+  const outputData = dailyRows.map(r => Math.round((r.output || 0) / 1000));
+  const yMax = Math.max(...inputData.map((v, i) => v + outputData[i]), 10);
+  const datasets = [
+    { label: 'Input (K)',  data: inputData,  color: 'rgba(59,130,246,0.9)',  fillColor: 'rgba(59,130,246,0.15)' },
+    { label: 'Output (K)', data: outputData, color: 'rgba(34,197,94,0.9)',   fillColor: 'rgba(34,197,94,0.15)'  },
+  ];
+  chartLegend.innerHTML = datasets.map(ds =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${ds.color}"></span>${ds.label}</span>`
+  ).join('');
+  chart.setData({ labels, datasets, yMax });
+}
+
+function formatStatNum(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(n);
+}
+
+function buildQuotaRow(label, utilization, resetsAt) {
+  const wrap = document.createElement('div');
+  wrap.className = 'provider-quota-row';
+
+  const top = document.createElement('div');
+  top.className = 'provider-quota-row-top';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'provider-quota-label';
+  lbl.textContent = label;
+
+  const pct = document.createElement('span');
+  pct.className = 'provider-quota-pct';
+  pct.textContent = utilization != null ? `${utilization}%` : '—';
+
+  top.appendChild(lbl);
+  top.appendChild(pct);
+  wrap.appendChild(top);
+
+  const bar = document.createElement('div');
+  bar.className = 'progress-bar';
+  const fill = document.createElement('div');
+  fill.className = 'progress-fill';
+  fill.style.width = `${Math.min(utilization || 0, 100)}%`;
+  bar.appendChild(fill);
+  wrap.appendChild(bar);
+
+  if (resetsAt) {
+    const reset = document.createElement('div');
+    reset.className = 'gauge-reset';
+    const d = new Date(resetsAt);
+    reset.textContent = 'Resets ' + d.toLocaleString();
+    wrap.appendChild(reset);
+  }
+
+  return wrap;
 }
 
 function showLogin() {
@@ -301,23 +456,41 @@ function updateModelBreakdown(usage) {
   }
 
   modelSection.style.display = 'block';
-  modelBreakdown.innerHTML = models.map(m => {
+  modelBreakdown.innerHTML = '';
+  for (const m of models) {
     const pct = Math.round(m.utilization);
     const color = getBarColor(pct);
-    const resetText = formatResetTime(m.resetsAt);
-    return `
-      <div class="model-row">
-        <div class="model-row-header">
-          <span class="model-name">${m.name}</span>
-          <span class="model-pct">${pct}%</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill ${color}" style="width: ${Math.min(pct, 100)}%"></div>
-        </div>
-        <div class="model-detail">${resetText}</div>
-      </div>
-    `;
-  }).join('');
+
+    const row = document.createElement('div');
+    row.className = 'model-row';
+
+    const header = document.createElement('div');
+    header.className = 'model-row-header';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'model-name';
+    nameEl.textContent = m.name;
+    const pctEl = document.createElement('span');
+    pctEl.className = 'model-pct';
+    pctEl.textContent = `${pct}%`;
+    header.appendChild(nameEl);
+    header.appendChild(pctEl);
+
+    const bar = document.createElement('div');
+    bar.className = 'progress-bar';
+    const fill = document.createElement('div');
+    fill.className = `progress-fill ${color}`;
+    fill.style.width = `${Math.min(pct, 100)}%`;
+    bar.appendChild(fill);
+
+    const detail = document.createElement('div');
+    detail.className = 'model-detail';
+    detail.textContent = formatResetTime(m.resetsAt);
+
+    row.appendChild(header);
+    row.appendChild(bar);
+    row.appendChild(detail);
+    modelBreakdown.appendChild(row);
+  }
 }
 
 function updateChart() {
