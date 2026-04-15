@@ -12,8 +12,6 @@ const PRICING = {
   'gemini-1.5-pro':   { input: 1.25, output: 5,    cacheRead: 0.31, cacheWrite: 0 },
   'gemini-1.5-flash': { input: 0.075, output: 0.3, cacheRead: 0.01875, cacheWrite: 0 },
 };
-const DEFAULT_PRICING = { input: 1.25, output: 10, cacheRead: 0.31, cacheWrite: 0 };
-
 function findLogFiles() {
   if (!fs.existsSync(GEMINI_DIR)) return [];
   const results = [];
