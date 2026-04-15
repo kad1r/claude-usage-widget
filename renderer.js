@@ -84,6 +84,65 @@ async function init() {
 function showDashboard() {
   loginScreen.style.display = 'none';
   dashboardScreen.style.display = 'flex';
+  initProviderTabs();
+}
+
+async function initProviderTabs() {
+  // Only show tabs if 2+ providers are available
+  let providers;
+  try {
+    providers = await window.api.getProvidersList();
+  } catch (e) {
+    return; // graceful degradation — old API or error
+  }
+
+  const available = providers.filter(p => p.available);
+  if (available.length <= 1) return;
+
+  const tabsEl = document.getElementById('provider-tabs');
+  const summaryEl = document.getElementById('provider-summary-bar');
+  if (!tabsEl || !summaryEl) return;
+
+  tabsEl.style.display = 'flex';
+  summaryEl.style.display = 'block';
+
+  // Fetch all quota data for summary bar
+  let quotas = [];
+  try {
+    quotas = await window.api.fetchAllProvidersQuota();
+  } catch (e) {}
+
+  // Build summary bar items
+  const summaryItemsEl = document.getElementById('provider-summary-items');
+  summaryItemsEl.innerHTML = '';
+  for (const p of available) {
+    const quota = quotas.find(q => q.provider === p.id);
+    const utilization = quota?.quota?.session?.utilization ?? quota?.quota?.weekly?.utilization;
+    const item = document.createElement('div');
+    item.className = 'provider-summary-item';
+    item.innerHTML = `
+      <span class="provider-summary-dot" style="background:${p.color}"></span>
+      <span>${p.name}${utilization != null ? ` ${utilization}%` : ''}</span>
+    `;
+    summaryItemsEl.appendChild(item);
+  }
+
+  // Build provider tabs (Claude tab first, then others)
+  tabsEl.innerHTML = '';
+  for (const p of available) {
+    const btn = document.createElement('button');
+    btn.className = 'provider-tab' + (p.id === 'claude' ? ' active' : '');
+    btn.dataset.provider = p.id;
+    btn.textContent = `${p.icon} ${p.name}`;
+    btn.style.setProperty('--provider-tab-color', p.color);
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.provider-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      // Future: show/hide provider-specific gauge panels
+      // For now just visually switch the active tab
+    });
+    tabsEl.appendChild(btn);
+  }
 }
 
 function showLogin() {
