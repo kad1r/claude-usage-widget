@@ -417,7 +417,11 @@ ipcMain.handle('get-available-models', () => {
 
 // IPC: Multi-provider
 ipcMain.handle('fetch-all-providers-quota', async () => {
-  return registry.fetchAllQuotas();
+  try {
+    return await registry.fetchAllQuotas();
+  } catch (err) {
+    return { error: err.message };
+  }
 });
 
 ipcMain.handle('get-providers-list', async () => {
@@ -431,15 +435,17 @@ ipcMain.handle('get-providers-list', async () => {
 });
 
 ipcMain.handle('save-provider-settings', async (event, { providerId, apiKey, enabled }) => {
+  if (!registry.getById(providerId)) return { error: 'Unknown provider' };
   const scannerModule = require('./providers/claude/scanner');
-  const db = scannerModule.openDb();
+  let db;
   try {
+    db = scannerModule.openDb();
     db.prepare(`
       INSERT OR REPLACE INTO providers (id, enabled, api_key)
       VALUES (?, ?, ?)
     `).run(providerId, enabled ? 1 : 0, apiKey || null);
   } finally {
-    db.close();
+    db?.close();
   }
   return { ok: true };
 });
@@ -448,12 +454,13 @@ ipcMain.handle('scan-provider-local', async (event, { providerId }) => {
   const provider = registry.getById(providerId);
   if (!provider) return { error: 'Provider not found' };
   const scannerModule = require('./providers/claude/scanner');
-  const db = scannerModule.openDb();
+  let db;
   try {
+    db = scannerModule.openDb();
     const result = await provider.scanLocal(db);
     return result;
   } finally {
-    db.close();
+    db?.close();
   }
 });
 
