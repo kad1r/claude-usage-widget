@@ -779,6 +779,12 @@ select {
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
+  color-scheme: dark;
+}
+
+select option {
+  background: #1e1e2e;
+  color: #e2e2e2;
 }
 
 select:focus {
@@ -791,6 +797,12 @@ body:not(.dark) select {
   background: #ffffff;
   color: #1a1a1a;
   border-color: #d1d5db;
+  color-scheme: light;
+}
+
+body:not(.dark) select option {
+  background: #ffffff;
+  color: #1a1a1a;
 }
 
 /* Light theme overrides (default — no class needed) */
