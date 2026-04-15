@@ -6,7 +6,6 @@ let lastFetchTime = null;
 let updateTimer = null;
 let historyData = { dataPoints: [] };
 let isDarkMode = false;
-let isLocalOnlyMode = false;
 
 // Chart colors
 const COLORS = {
@@ -69,6 +68,12 @@ async function init() {
     updateChart();
   });
 
+  const clientId = await window.electronAPI.getClientId();
+  if (!clientId) {
+    document.getElementById('setup-screen').style.display = 'flex';
+    return;
+  }
+
   const isAuth = await window.electronAPI.checkAuth();
   const launchAtLogin = await window.electronAPI.getLaunchAtLogin();
   launchToggle.checked = launchAtLogin;
@@ -85,17 +90,6 @@ async function init() {
 function showDashboard() {
   loginScreen.style.display = 'none';
   dashboardScreen.style.display = 'flex';
-
-  const gaugeRow = document.getElementById('claude-gauge-row');
-  const notice = document.getElementById('local-only-notice');
-  if (isLocalOnlyMode) {
-    if (gaugeRow) gaugeRow.style.display = 'none';
-    if (notice) notice.style.display = 'flex';
-  } else {
-    if (gaugeRow) gaugeRow.style.display = '';
-    if (notice) notice.style.display = 'none';
-  }
-
   initProviderTabs();
 }
 
@@ -363,21 +357,6 @@ function getBarColor(pct) {
 
 // Load data and display
 async function loadAndDisplay() {
-  if (isLocalOnlyMode) {
-    showLoading(true);
-    try {
-      await window.electronAPI.scanLocalUsage();
-      lastFetchTime = new Date();
-      updateTimestamp();
-      startUpdateTimer();
-    } catch (e) {
-      showError('Lokal tarama başarısız: ' + (e.message || ''));
-    } finally {
-      showLoading(false);
-    }
-    return;
-  }
-
   showLoading(true);
   try {
     const [usage, profile, history] = await Promise.all([
@@ -596,22 +575,29 @@ function startUpdateTimer() {
 }
 
 // Event Listeners
+document.getElementById('save-client-id-btn')?.addEventListener('click', async () => {
+  const input = document.getElementById('client-id-input');
+  const errorEl = document.getElementById('client-id-error');
+  const id = input?.value?.trim();
+  if (!id) {
+    errorEl.textContent = 'Lütfen bir Client ID girin.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  errorEl.style.display = 'none';
+  await window.electronAPI.saveClientId(id);
+  document.getElementById('setup-screen').style.display = 'none';
+  const launchAtLogin = await window.electronAPI.getLaunchAtLogin();
+  launchToggle.checked = launchAtLogin;
+  loginScreen.style.display = 'flex';
+});
+
 loginBtn.addEventListener('click', async () => {
   await window.electronAPI.startOAuth();
   codeSection.style.display = 'block';
   loginBtn.style.display = 'none';
 });
 
-document.getElementById('skip-auth-btn')?.addEventListener('click', () => {
-  isLocalOnlyMode = true;
-  showDashboard();
-  loadAndDisplay();
-});
-
-document.getElementById('notice-signin-btn')?.addEventListener('click', () => {
-  isLocalOnlyMode = false;
-  showLogin();
-});
 
 submitCodeBtn.addEventListener('click', async () => {
   const code = codeInput.value.trim();
@@ -636,6 +622,10 @@ codeInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') submitCodeBtn.click();
 });
 
+document.getElementById('client-id-input')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('save-client-id-btn')?.click();
+});
+
 document.getElementById('refresh-btn').addEventListener('click', () => loadAndDisplay());
 
 // Hamburger menu
@@ -654,7 +644,6 @@ document.addEventListener('click', () => {
 document.getElementById('signout-btn').addEventListener('click', async () => {
   hamburgerDropdown.classList.remove('open');
   await window.electronAPI.signOut();
-  isLocalOnlyMode = false;
   showLogin();
 });
 

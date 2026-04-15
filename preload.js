@@ -20,5 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchAllProvidersQuota: () => ipcRenderer.invoke('fetch-all-providers-quota'),
   getProvidersList: () => ipcRenderer.invoke('get-providers-list'),
   saveProviderSettings: (opts) => ipcRenderer.invoke('save-provider-settings', opts),
-  scanProviderLocal: (opts) => ipcRenderer.invoke('scan-provider-local', opts)
+  scanProviderLocal: (opts) => ipcRenderer.invoke('scan-provider-local', opts),
+  getClientId: () => ipcRenderer.invoke('get-client-id'),
+  saveClientId: (id) => ipcRenderer.invoke('save-client-id', id)
 });

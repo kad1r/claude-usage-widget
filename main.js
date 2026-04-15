@@ -15,9 +15,9 @@ let mainWindow = null;
 const DATA_DIR = path.join(app.getPath('userData'), 'claude-usage');
 const CREDENTIALS_PATH = path.join(DATA_DIR, 'credentials.json');
 const HISTORY_PATH = path.join(DATA_DIR, 'history.json');
+const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json');
 
-// OAuth constants (same as claude-usage-bar)
-const CLIENT_ID = '';
+// OAuth constants
 const REDIRECT_URI = 'https://platform.claude.com/oauth/code/callback';
 const AUTHORIZE_URL = 'https://claude.ai/oauth/authorize';
 const TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
@@ -68,6 +68,23 @@ function loadCredentials() {
 
 function deleteCredentials() {
   try { fs.unlinkSync(CREDENTIALS_PATH); } catch (e) {}
+}
+
+// Settings (plain JSON — CLIENT_ID is not a secret)
+function loadSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_PATH)) return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
+  } catch (e) {}
+  return {};
+}
+
+function saveSettings(settings) {
+  ensureDataDir();
+  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings));
+}
+
+function getClientId() {
+  return loadSettings().clientId || '';
 }
 
 const ALLOWED_EXTERNAL_ORIGINS = ['https://claude.ai', 'https://platform.claude.com'];
@@ -231,7 +248,7 @@ ipcMain.handle('start-oauth', () => {
 
   const params = new URLSearchParams({
     code: 'true',
-    client_id: CLIENT_ID,
+    client_id: getClientId(),
     response_type: 'code',
     redirect_uri: REDIRECT_URI,
     scope: SCOPES.join(' '),
@@ -265,7 +282,7 @@ ipcMain.handle('submit-oauth-code', async (_, rawCode) => {
     grant_type: 'authorization_code',
     code,
     state: oauthState || '',
-    client_id: CLIENT_ID,
+    client_id: getClientId(),
     redirect_uri: REDIRECT_URI,
     code_verifier: codeVerifier
   };
@@ -308,7 +325,7 @@ async function refreshAccessToken() {
   const body = {
     grant_type: 'refresh_token',
     refresh_token: creds.refreshToken,
-    client_id: CLIENT_ID
+    client_id: getClientId()
   };
 
   if (creds.scopes && creds.scopes.length) {
@@ -450,6 +467,16 @@ nativeTheme.on('updated', () => {
 
 // IPC: Quit
 ipcMain.handle('quit-app', () => app.quit());
+
+// IPC: Client ID
+ipcMain.handle('get-client-id', () => getClientId() || null);
+
+ipcMain.handle('save-client-id', (_, clientId) => {
+  const settings = loadSettings();
+  settings.clientId = clientId.trim();
+  saveSettings(settings);
+  return true;
+});
 
 // IPC: Local JSONL stats
 ipcMain.handle('scan-local-usage', () => scanAllProviders());
