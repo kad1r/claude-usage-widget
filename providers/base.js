@@ -33,13 +33,7 @@ class BaseProvider {
    * }
    */
   async fetchQuota() {
-    return {
-      provider: this.id,
-      name: this.name,
-      available: false,
-      quota: { session: null, weekly: null, models: [] },
-      error: 'fetchQuota not implemented'
-    };
+    throw new Error(`${this.constructor.name} must implement fetchQuota`);
   }
 
   /**
