@@ -17,12 +17,7 @@ const PRICING = {
   'gpt-4o-mini':        { input: 0.15, output: 0.6,  cacheRead: 0.075, cacheWrite: 0 },
   'cursor-small':       { input: 0,    output: 0,    cacheRead: 0,    cacheWrite: 0 },
 };
-const DEFAULT_PRICING = { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 };
 
-function calcCost(model, inputTokens, outputTokens) {
-  const p = PRICING[model] || DEFAULT_PRICING;
-  return (inputTokens / 1e6) * p.input + (outputTokens / 1e6) * p.output;
-}
 
 function findUsageFiles() {
   if (!fs.existsSync(CURSOR_DATA_DIR)) return [];
