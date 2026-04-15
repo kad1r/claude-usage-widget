@@ -461,4 +461,85 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+async function renderProviderSettings() {
+  const list = document.getElementById('provider-settings-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  let providers = [];
+  try {
+    providers = await window.electronAPI.getProvidersList();
+  } catch (e) {
+    list.textContent = 'Provider listesi alınamadı.';
+    return;
+  }
+
+  for (const p of providers) {
+    const row = document.createElement('div');
+    row.className = 'provider-setting-row';
+
+    const icon = document.createElement('span');
+    icon.className = 'provider-icon';
+    icon.textContent = p.icon;
+
+    const label = document.createElement('span');
+    label.className = 'provider-label';
+    label.textContent = p.name;
+
+    const badge = document.createElement('span');
+    badge.className = 'provider-status-badge' + (p.available ? ' available' : '');
+    badge.textContent = p.available ? 'Aktif' : 'Bulunamadı';
+
+    const apiKeyInput = document.createElement('input');
+    apiKeyInput.type = 'password';
+    apiKeyInput.className = 'provider-api-key-input';
+    apiKeyInput.placeholder = 'API Key (isteğe bağlı)';
+    apiKeyInput.dataset.provider = p.id;
+    // Don't pre-fill API key for security
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'icon-btn';
+    saveBtn.textContent = 'Kaydet';
+    saveBtn.style.fontSize = '11px';
+    saveBtn.addEventListener('click', async () => {
+      const apiKey = apiKeyInput.value.trim();
+      try {
+        await window.electronAPI.saveProviderSettings({ providerId: p.id, apiKey: apiKey || null, enabled: true });
+        saveBtn.textContent = '✓';
+        setTimeout(() => { saveBtn.textContent = 'Kaydet'; }, 1500);
+      } catch (e) {
+        saveBtn.textContent = '✗';
+        setTimeout(() => { saveBtn.textContent = 'Kaydet'; }, 1500);
+      }
+    });
+
+    row.appendChild(icon);
+    row.appendChild(label);
+    row.appendChild(badge);
+    row.appendChild(apiKeyInput);
+    row.appendChild(saveBtn);
+    list.appendChild(row);
+  }
+}
+
+function initSettingsPanel() {
+  const settingsBtn = document.getElementById('settings-btn');
+  const closeBtn = document.getElementById('settings-close');
+  const panel = document.getElementById('provider-settings-panel');
+
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      if (panel) panel.style.display = 'flex';
+      renderProviderSettings();
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (panel) panel.style.display = 'none';
+    });
+  }
+}
+
+initSettingsPanel();
 init();
