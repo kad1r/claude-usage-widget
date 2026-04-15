@@ -1,6 +1,6 @@
 {
   "name": "claude-usage-app",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Claude API Usage Tracker - System Tray App",
   "main": "main.js",
   "scripts": {

@@ -6,6 +6,7 @@ let lastFetchTime = null;
 let updateTimer = null;
 let historyData = { dataPoints: [] };
 let isDarkMode = false;
+let isLocalOnlyMode = false;
 
 // Chart colors
 const COLORS = {
@@ -84,6 +85,17 @@ async function init() {
 function showDashboard() {
   loginScreen.style.display = 'none';
   dashboardScreen.style.display = 'flex';
+
+  const gaugeRow = document.getElementById('claude-gauge-row');
+  const notice = document.getElementById('local-only-notice');
+  if (isLocalOnlyMode) {
+    if (gaugeRow) gaugeRow.style.display = 'none';
+    if (notice) notice.style.display = 'flex';
+  } else {
+    if (gaugeRow) gaugeRow.style.display = '';
+    if (notice) notice.style.display = 'none';
+  }
+
   initProviderTabs();
 }
 
@@ -351,6 +363,21 @@ function getBarColor(pct) {
 
 // Load data and display
 async function loadAndDisplay() {
+  if (isLocalOnlyMode) {
+    showLoading(true);
+    try {
+      await window.electronAPI.scanLocalUsage();
+      lastFetchTime = new Date();
+      updateTimestamp();
+      startUpdateTimer();
+    } catch (e) {
+      showError('Lokal tarama başarısız: ' + (e.message || ''));
+    } finally {
+      showLoading(false);
+    }
+    return;
+  }
+
   showLoading(true);
   try {
     const [usage, profile, history] = await Promise.all([
@@ -575,6 +602,17 @@ loginBtn.addEventListener('click', async () => {
   loginBtn.style.display = 'none';
 });
 
+document.getElementById('skip-auth-btn')?.addEventListener('click', () => {
+  isLocalOnlyMode = true;
+  showDashboard();
+  loadAndDisplay();
+});
+
+document.getElementById('notice-signin-btn')?.addEventListener('click', () => {
+  isLocalOnlyMode = false;
+  showLogin();
+});
+
 submitCodeBtn.addEventListener('click', async () => {
   const code = codeInput.value.trim();
   if (!code) {
@@ -616,6 +654,7 @@ document.addEventListener('click', () => {
 document.getElementById('signout-btn').addEventListener('click', async () => {
   hamburgerDropdown.classList.remove('open');
   await window.electronAPI.signOut();
+  isLocalOnlyMode = false;
   showLogin();
 });
 
