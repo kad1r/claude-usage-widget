@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const scanner = require('./scanner');
+const registry = require('./providers/registry');
+const ClaudeProvider = require('./providers/claude');
 
 let tray = null;
 let mainWindow = null;
@@ -134,6 +136,10 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.dock?.hide?.();
+
+  // Register providers
+  const claudeProvider = new ClaudeProvider(CREDENTIALS_PATH, HISTORY_PATH);
+  registry.register(claudeProvider);
 
   // Scan local JSONL files on startup
   scanner.scan();
@@ -406,6 +412,48 @@ ipcMain.handle('get-available-models', () => {
     return scanner.getAvailableModels();
   } catch (e) {
     return [];
+  }
+});
+
+// IPC: Multi-provider
+ipcMain.handle('fetch-all-providers-quota', async () => {
+  return registry.fetchAllQuotas();
+});
+
+ipcMain.handle('get-providers-list', async () => {
+  return Promise.all(registry.getAll().map(async p => ({
+    id: p.id,
+    name: p.name,
+    icon: p.icon,
+    color: p.color,
+    available: await p.isAvailable()
+  })));
+});
+
+ipcMain.handle('save-provider-settings', async (event, { providerId, apiKey, enabled }) => {
+  const scannerModule = require('./providers/claude/scanner');
+  const db = scannerModule.openDb();
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO providers (id, enabled, api_key)
+      VALUES (?, ?, ?)
+    `).run(providerId, enabled ? 1 : 0, apiKey || null);
+  } finally {
+    db.close();
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('scan-provider-local', async (event, { providerId }) => {
+  const provider = registry.getById(providerId);
+  if (!provider) return { error: 'Provider not found' };
+  const scannerModule = require('./providers/claude/scanner');
+  const db = scannerModule.openDb();
+  try {
+    const result = await provider.scanLocal(db);
+    return result;
+  } finally {
+    db.close();
   }
 });
 

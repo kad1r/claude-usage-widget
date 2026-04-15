@@ -16,5 +16,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   quit: () => ipcRenderer.invoke('quit-app'),
   scanLocalUsage: () => ipcRenderer.invoke('scan-local-usage'),
   getDetailedStats: (filters) => ipcRenderer.invoke('get-detailed-stats', filters),
-  getAvailableModels: () => ipcRenderer.invoke('get-available-models')
+  getAvailableModels: () => ipcRenderer.invoke('get-available-models'),
+  fetchAllProvidersQuota: () => ipcRenderer.invoke('fetch-all-providers-quota'),
+  getProvidersList: () => ipcRenderer.invoke('get-providers-list'),
+  saveProviderSettings: (opts) => ipcRenderer.invoke('save-provider-settings', opts),
+  scanProviderLocal: (opts) => ipcRenderer.invoke('scan-provider-local', opts)
 });
