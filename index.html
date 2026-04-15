@@ -24,6 +24,7 @@
         <h2>Claude Usage</h2>
         <p class="login-desc">Sign in with your Claude account to track usage.</p>
         <button id="login-btn" class="btn-primary">Sign in with Claude</button>
+        <button id="skip-auth-btn" class="btn-link">Giriş yapmadan devam et →</button>
 
         <!-- Code input (shown after browser auth) -->
         <div id="code-section" style="display:none;">
@@ -57,6 +58,12 @@
         <div class="header">
           <h1>Claude Usage</h1>
           <span class="user-email" id="user-email"></span>
+        </div>
+
+        <!-- Local-only mode notice -->
+        <div id="local-only-notice" style="display:none;">
+          <span>Claude kotası için giriş yapın</span>
+          <button id="notice-signin-btn" class="btn-link-small">Giriş yap</button>
         </div>
 
         <!-- Gauge Charts (Claude) -->
