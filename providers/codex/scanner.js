@@ -50,11 +50,14 @@ function scanAndStore(db) {
     try { lines = fs.readFileSync(filePath, 'utf8').split('\n').filter(Boolean); } catch { continue; }
 
     const sessionId = 'codex:' + path.basename(filePath, '.jsonl');
+    // Delete stale turns so re-processing doesn't accumulate duplicates
+    db.prepare('DELETE FROM turns WHERE session_id = ? AND provider = ?').run(sessionId, 'codex');
     let sessionData = { model: 'gpt-4o', turns: 0, inputT: 0, outputT: 0, cacheRead: 0, first: null, last: null };
 
     for (const line of lines) {
       let msg;
       try { msg = JSON.parse(line); } catch { continue; }
+      if (!msg || typeof msg !== 'object' || Array.isArray(msg)) continue;
 
       const usage = msg.usage || msg.response?.usage;
       if (!usage) continue;

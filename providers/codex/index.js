@@ -1,6 +1,8 @@
 // providers/codex/index.js
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 const BaseProvider = require('../base');
 const scanner = require('./scanner');
 
@@ -12,7 +14,7 @@ class CodexProvider extends BaseProvider {
 
   async isAvailable() {
     try {
-      execSync('codex --version', { stdio: 'ignore', timeout: 3000 });
+      await execAsync('codex --version', { timeout: 3000 });
       return true;
     } catch {
       return fs.existsSync(scanner.CODEX_DIR);
@@ -23,8 +25,8 @@ class CodexProvider extends BaseProvider {
 
   async fetchQuota() {
     try {
-      const out = execSync('codex usage --json', { timeout: 5000 }).toString();
-      const data = JSON.parse(out);
+      const { stdout } = await execAsync('codex usage --json', { timeout: 5000 });
+      const data = JSON.parse(stdout);
       return {
         provider: this.id, name: this.name, available: true,
         quota: {
