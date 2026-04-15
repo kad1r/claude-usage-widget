@@ -1,4 +1,5 @@
 // providers/claude/index.js
+const fs = require('fs');
 const BaseProvider = require('../base');
 const scanner = require('./scanner');
 
@@ -16,7 +17,6 @@ class ClaudeProvider extends BaseProvider {
   get color() { return '#d97706'; }
 
   async isAvailable() {
-    const fs = require('fs');
     return fs.existsSync(this.credentialsPath);
   }
 
