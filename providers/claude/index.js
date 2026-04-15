@@ -1,0 +1,61 @@
+// providers/claude/index.js
+const BaseProvider = require('../base');
+const scanner = require('./scanner');
+
+class ClaudeProvider extends BaseProvider {
+  constructor(credentialsPath, historyPath) {
+    super();
+    this.credentialsPath = credentialsPath;
+    this.historyPath = historyPath;
+    this._credentials = null;
+  }
+
+  get id()    { return 'claude'; }
+  get name()  { return 'Claude'; }
+  get icon()  { return '🟣'; }
+  get color() { return '#d97706'; }
+
+  async isAvailable() {
+    const fs = require('fs');
+    return fs.existsSync(this.credentialsPath);
+  }
+
+  setCredentials(creds) { this._credentials = creds; }
+  getCredentials()      { return this._credentials; }
+
+  getPricing() {
+    return scanner.PRICING;
+  }
+
+  async scanLocal(db) {
+    return scanner.scanAndStore(db);
+  }
+
+  async fetchQuota(authorizedFetch) {
+    // authorizedFetch injected from main.js (has token refresh logic)
+    const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
+    const data = await authorizedFetch(USAGE_URL);
+
+    return {
+      provider: this.id,
+      name: this.name,
+      available: true,
+      quota: {
+        session: data.five_hour
+          ? { utilization: data.five_hour.utilization, resetsAt: data.five_hour.resets_at }
+          : null,
+        weekly: data.seven_day
+          ? { utilization: data.seven_day.utilization, resetsAt: data.seven_day.resets_at }
+          : null,
+        models: [
+          data.seven_day_opus   ? { name: 'claude-opus',   utilization: data.seven_day_opus.utilization }   : null,
+          data.seven_day_sonnet ? { name: 'claude-sonnet', utilization: data.seven_day_sonnet.utilization } : null,
+        ].filter(Boolean),
+        raw: data  // keep raw for existing renderer compatibility
+      },
+      error: null
+    };
+  }
+}
+
+module.exports = ClaudeProvider;
