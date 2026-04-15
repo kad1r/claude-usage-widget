@@ -44,7 +44,7 @@ function scanAndStore(db) {
     try { stat = fs.statSync(filePath); } catch { continue; }
 
     const existing = db.prepare('SELECT mtime, lines FROM processed_files WHERE path = ?').get(filePath);
-    if (existing && existing.mtime === stat.mtimeMs) continue;
+    if (existing && existing.mtime === Math.floor(stat.mtimeMs)) continue;
 
     let lines;
     try { lines = fs.readFileSync(filePath, 'utf8').split('\n').filter(Boolean); } catch { continue; }
@@ -94,7 +94,7 @@ function scanAndStore(db) {
     }
 
     db.prepare('INSERT OR REPLACE INTO processed_files (path, mtime, lines) VALUES (?, ?, ?)')
-      .run(filePath, stat.mtimeMs, lines.length);
+      .run(filePath, Math.floor(stat.mtimeMs), lines.length);
   }
 
   return { newSessions, newTurns };

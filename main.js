@@ -146,6 +146,7 @@ app.whenReady().then(() => {
   registry.register(new CodexProvider());
   registry.register(new GeminiProvider());
   registry.register(new CursorProvider());
+  claudeProvider.setAuthorizedFetch(authorizedFetch);
 
   // Scan local JSONL files on startup
   scanner.scan();
@@ -426,7 +427,8 @@ ipcMain.handle('fetch-all-providers-quota', async () => {
   try {
     return await registry.fetchAllQuotas();
   } catch (err) {
-    return { error: err.message };
+    console.error('[fetch-all-providers-quota]', err);
+    return [];
   }
 });
 

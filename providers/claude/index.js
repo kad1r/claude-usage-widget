@@ -23,6 +23,8 @@ class ClaudeProvider extends BaseProvider {
   setCredentials(creds) { this._credentials = creds; }
   getCredentials()      { return this._credentials; }
 
+  setAuthorizedFetch(fn) { this._authorizedFetch = fn; }
+
   getPricing() {
     return scanner.PRICING;
   }
@@ -31,10 +33,16 @@ class ClaudeProvider extends BaseProvider {
     return scanner.scanAndStore(db);
   }
 
-  async fetchQuota(authorizedFetch) {
-    // authorizedFetch injected from main.js (has token refresh logic)
+  async fetchQuota() {
+    if (!this._authorizedFetch) {
+      return {
+        provider: this.id, name: this.name, available: false,
+        quota: { session: null, weekly: null, models: [] },
+        error: 'Not authenticated'
+      };
+    }
     const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
-    const data = await authorizedFetch(USAGE_URL);
+    const data = await this._authorizedFetch(USAGE_URL);
 
     return {
       provider: this.id,
