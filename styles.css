@@ -819,7 +819,7 @@ body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
 /* === Multi-Provider UI === */
 #provider-summary-bar {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-main);
   font-size: 12px;
 }
 .summary-title {
@@ -858,9 +858,9 @@ body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
 .provider-tab {
   padding: 4px 10px;
   border-radius: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-main);
   background: transparent;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -878,7 +878,7 @@ body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
 #provider-settings-panel {
   position: absolute;
   inset: 0;
-  background: var(--bg);
+  background: var(--bg-primary);
   z-index: 100;
   padding: 12px;
   overflow-y: auto;
@@ -892,7 +892,7 @@ body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
   align-items: center;
   margin-bottom: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-main);
 }
 .settings-title {
   font-weight: 600;
@@ -903,7 +903,7 @@ body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
   align-items: center;
   gap: 8px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-main);
   font-size: 12px;
 }
 .provider-setting-row .provider-icon { font-size: 14px; }
@@ -912,7 +912,7 @@ body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
   font-size: 10px;
   padding: 2px 6px;
   border-radius: 8px;
-  background: var(--border);
+  background: var(--border-main);
   white-space: nowrap;
 }
 .provider-status-badge.available { background: #16a34a22; color: #16a34a; }
@@ -920,9 +920,9 @@ body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
   font-size: 11px;
   padding: 3px 6px;
   background: var(--bg-secondary, rgba(255,255,255,0.05));
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-main);
   border-radius: 4px;
-  color: var(--text);
+  color: var(--text-primary);
   width: 120px;
 }
 .icon-btn {
@@ -934,4 +934,4 @@ body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
   border-radius: 4px;
   font-size: 13px;
 }
-.icon-btn:hover { color: var(--text); }
+.icon-btn:hover { color: var(--text-primary); }
