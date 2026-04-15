@@ -91,7 +91,7 @@ async function initProviderTabs() {
   // Only show tabs if 2+ providers are available
   let providers;
   try {
-    providers = await window.api.getProvidersList();
+    providers = await window.electronAPI.getProvidersList();
   } catch (e) {
     return; // graceful degradation — old API or error
   }
@@ -109,8 +109,8 @@ async function initProviderTabs() {
   // Fetch all quota data for summary bar
   let quotas = [];
   try {
-    quotas = await window.api.fetchAllProvidersQuota();
-  } catch (e) {}
+    quotas = await window.electronAPI.fetchAllProvidersQuota();
+  } catch (e) { console.warn('[initProviderTabs] quota fetch failed:', e); }
 
   // Build summary bar items
   const summaryItemsEl = document.getElementById('provider-summary-items');
@@ -120,10 +120,16 @@ async function initProviderTabs() {
     const utilization = quota?.quota?.session?.utilization ?? quota?.quota?.weekly?.utilization;
     const item = document.createElement('div');
     item.className = 'provider-summary-item';
-    item.innerHTML = `
-      <span class="provider-summary-dot" style="background:${p.color}"></span>
-      <span>${p.name}${utilization != null ? ` ${utilization}%` : ''}</span>
-    `;
+
+    const dot = document.createElement('span');
+    dot.className = 'provider-summary-dot';
+    dot.style.background = p.color;
+
+    const label = document.createElement('span');
+    label.textContent = `${p.name}${utilization != null ? ` ${utilization}%` : ''}`;
+
+    item.appendChild(dot);
+    item.appendChild(label);
     summaryItemsEl.appendChild(item);
   }
 
