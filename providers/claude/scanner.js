@@ -61,6 +61,28 @@ function openDb() {
       lines INTEGER
     );
   `);
+
+  // Migration: add provider column if not exists
+  const sessionCols = db.prepare("PRAGMA table_info(sessions)").all().map(c => c.name);
+  if (!sessionCols.includes('provider')) {
+    db.exec("ALTER TABLE sessions ADD COLUMN provider TEXT DEFAULT 'claude'");
+  }
+  const turnCols = db.prepare("PRAGMA table_info(turns)").all().map(c => c.name);
+  if (!turnCols.includes('provider')) {
+    db.exec("ALTER TABLE turns ADD COLUMN provider TEXT DEFAULT 'claude'");
+  }
+
+  // Provider settings table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS providers (
+      id          TEXT PRIMARY KEY,
+      enabled     INTEGER DEFAULT 1,
+      api_key     TEXT,
+      last_synced TEXT,
+      settings    TEXT
+    );
+  `);
+
   return db;
 }
 
@@ -98,8 +120,8 @@ function scanFile(db, filePath) {
     let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheWrite = 0;
 
     const insertTurn = db.prepare(`
-      INSERT INTO turns (session_id, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO turns (session_id, timestamp, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, provider)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'claude')
     `);
 
     for (const line of lines) {
@@ -142,8 +164,8 @@ function scanFile(db, filePath) {
     db.prepare(`
       INSERT OR REPLACE INTO sessions
         (session_id, project_name, first_timestamp, last_timestamp, model, turn_count,
-         total_input_tokens, total_output_tokens, total_cache_read, total_cache_creation)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         total_input_tokens, total_output_tokens, total_cache_read, total_cache_creation, provider)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'claude')
     `).run(sessionId, projectName, firstTimestamp, lastTimestamp, model, turnCount,
            totalInput, totalOutput, totalCacheRead, totalCacheWrite);
 
@@ -192,7 +214,7 @@ function scan() {
 function queryStats(filters = {}) {
   const db = openDb();
   try {
-    const { model, days } = filters;
+    const { model, days, provider } = filters;
     let whereSession = '1=1';
     const params = [];
 
@@ -204,6 +226,10 @@ function queryStats(filters = {}) {
     if (model && model !== 'all') {
       whereSession += ' AND model LIKE ?';
       params.push(`%${model}%`);
+    }
+    if (provider && provider !== 'all') {
+      whereSession += ' AND provider = ?';
+      params.push(provider);
     }
 
     const summary = db.prepare(`
