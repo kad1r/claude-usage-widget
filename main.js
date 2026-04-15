@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const scanner = require('./scanner');
 const registry = require('./providers/registry');
 const ClaudeProvider = require('./providers/claude');
+const CodexProvider = require('./providers/codex');
 
 let tray = null;
 let mainWindow = null;
@@ -140,6 +141,7 @@ app.whenReady().then(() => {
   // Register providers
   const claudeProvider = new ClaudeProvider(CREDENTIALS_PATH, HISTORY_PATH);
   registry.register(claudeProvider);
+  registry.register(new CodexProvider());
 
   // Scan local JSONL files on startup
   scanner.scan();
