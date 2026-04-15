@@ -1,7 +1,13 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, screen, shell, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const scanner = require('./scanner');
+const registry = require('./providers/registry');
+const ClaudeProvider = require('./providers/claude');
+const CodexProvider = require('./providers/codex');
+const GeminiProvider = require('./providers/gemini');
+const CursorProvider = require('./providers/cursor');
 
 let tray = null;
 let mainWindow = null;
@@ -29,23 +35,53 @@ function ensureDataDir() {
   }
 }
 
-// Credentials
+// Credentials — encrypted via OS keychain (safeStorage / DPAPI / Keychain)
 function saveCredentials(creds) {
   ensureDataDir();
-  fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(creds, null, 2));
+  const json = JSON.stringify(creds);
+  if (safeStorage.isEncryptionAvailable()) {
+    fs.writeFileSync(CREDENTIALS_PATH, safeStorage.encryptString(json));
+  } else {
+    fs.writeFileSync(CREDENTIALS_PATH, json);
+  }
 }
 
 function loadCredentials() {
   try {
-    if (fs.existsSync(CREDENTIALS_PATH)) {
-      return JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+    if (!fs.existsSync(CREDENTIALS_PATH)) return null;
+    const data = fs.readFileSync(CREDENTIALS_PATH);
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        return JSON.parse(safeStorage.decryptString(data));
+      } catch {
+        // Migration: file is old plain-text JSON — re-save encrypted
+        const creds = JSON.parse(data.toString('utf8'));
+        saveCredentials(creds);
+        return creds;
+      }
     }
-  } catch (e) {}
-  return null;
+    return JSON.parse(data.toString('utf8'));
+  } catch (e) {
+    return null;
+  }
 }
 
 function deleteCredentials() {
   try { fs.unlinkSync(CREDENTIALS_PATH); } catch (e) {}
+}
+
+const ALLOWED_EXTERNAL_ORIGINS = ['https://claude.ai', 'https://platform.claude.com'];
+function safeOpenExternal(url) {
+  try {
+    const { origin } = new URL(url);
+    if (!ALLOWED_EXTERNAL_ORIGINS.includes(origin)) {
+      console.warn('[openExternal] blocked:', url);
+      return;
+    }
+  } catch {
+    return;
+  }
+  shell.openExternal(url);
 }
 
 // History
@@ -131,8 +167,39 @@ function createWindow() {
   });
 }
 
+async function scanAllProviders() {
+  let db;
+  try {
+    db = scanner.openDb();
+    for (const provider of registry.getAll()) {
+      try {
+        await provider.scanLocal(db);
+      } catch (e) {
+        console.error(`[scan] ${provider.id} failed:`, e.message);
+      }
+    }
+  } catch (e) {
+    console.error('[scanAllProviders]', e.message);
+  } finally {
+    db?.close();
+  }
+}
+
 app.whenReady().then(() => {
   app.dock?.hide?.();
+
+  // Register providers
+  const claudeProvider = new ClaudeProvider(CREDENTIALS_PATH, HISTORY_PATH);
+  registry.register(claudeProvider);
+  registry.register(new CodexProvider());
+  registry.register(new GeminiProvider());
+  registry.register(new CursorProvider());
+  claudeProvider.setAuthorizedFetch(authorizedFetch);
+
+  // Scan local files for all providers on startup
+  scanAllProviders();
+  // Re-scan every 5 minutes
+  setInterval(scanAllProviders, 5 * 60 * 1000);
 
   const icon = createTrayIcon();
   tray = new Tray(icon);
@@ -174,7 +241,7 @@ ipcMain.handle('start-oauth', () => {
   });
 
   const url = `${AUTHORIZE_URL}?${params.toString()}`;
-  shell.openExternal(url);
+  safeOpenExternal(url);
   return true;
 });
 
@@ -383,6 +450,75 @@ nativeTheme.on('updated', () => {
 
 // IPC: Quit
 ipcMain.handle('quit-app', () => app.quit());
+
+// IPC: Local JSONL stats
+ipcMain.handle('scan-local-usage', () => scanAllProviders());
+
+ipcMain.handle('get-detailed-stats', (_, filters) => {
+  try {
+    return { success: true, data: scanner.queryStats(filters) };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('get-available-models', () => {
+  try {
+    return scanner.getAvailableModels();
+  } catch (e) {
+    return [];
+  }
+});
+
+// IPC: Multi-provider
+ipcMain.handle('fetch-all-providers-quota', async () => {
+  try {
+    return await registry.fetchAllQuotas();
+  } catch (err) {
+    console.error('[fetch-all-providers-quota]', err);
+    return [];
+  }
+});
+
+ipcMain.handle('get-providers-list', async () => {
+  return Promise.all(registry.getAll().map(async p => ({
+    id: p.id,
+    name: p.name,
+    icon: p.icon,
+    color: p.color,
+    available: await p.isAvailable()
+  })));
+});
+
+ipcMain.handle('save-provider-settings', async (event, { providerId, apiKey, enabled }) => {
+  if (!registry.getById(providerId)) return { error: 'Unknown provider' };
+  const scannerModule = require('./providers/claude/scanner');
+  let db;
+  try {
+    db = scannerModule.openDb();
+    db.prepare(`
+      INSERT OR REPLACE INTO providers (id, enabled, api_key)
+      VALUES (?, ?, ?)
+    `).run(providerId, enabled ? 1 : 0, apiKey || null);
+  } finally {
+    db?.close();
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('scan-provider-local', async (event, { providerId }) => {
+  const provider = registry.getById(providerId);
+  if (!provider) return { error: 'Provider not found' };
+  const scannerModule = require('./providers/claude/scanner');
+  let db;
+  try {
+    db = scannerModule.openDb();
+    const result = await provider.scanLocal(db);
+    return result;
+  } finally {
+    db?.close();
+  }
+});
 
 app.on('window-all-closed', () => {
   // Keep running in tray

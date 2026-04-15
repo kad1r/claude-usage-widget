@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'none'; img-src 'self' data:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Claude Usage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -32,53 +36,178 @@
 
     <!-- Dashboard Screen -->
     <div id="dashboard-screen" class="screen" style="display:none;">
-      <div class="header">
-        <h1>Claude Usage</h1>
-        <span class="user-email" id="user-email"></span>
+
+      <!-- Tab Bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tab-ozet" data-tab="ozet">Özet</button>
+        <button class="tab-btn" id="tab-detayli" data-tab="detayli">Detaylı</button>
       </div>
 
-      <!-- Gauge Charts -->
-      <div class="gauge-row">
-        <div class="gauge-card">
-          <div class="gauge-title">5-Hour Window</div>
-          <canvas id="gauge-5h"></canvas>
-          <div class="gauge-reset" id="reset-5h">Resets --</div>
+      <!-- Unified provider summary bar -->
+      <div id="provider-summary-bar" style="display:none">
+        <div class="summary-title">Tüm Provider'lar</div>
+        <div id="provider-summary-items"></div>
+      </div>
+
+      <!-- Provider tabs -->
+      <div id="provider-tabs" style="display:none"></div>
+
+      <!-- ===== ÖZET TAB ===== -->
+      <div id="tab-content-ozet" class="tab-content">
+        <div class="header">
+          <h1>Claude Usage</h1>
+          <span class="user-email" id="user-email"></span>
         </div>
-        <div class="gauge-card">
-          <div class="gauge-title">7-Day Window</div>
-          <canvas id="gauge-7d"></canvas>
-          <div class="gauge-reset" id="reset-7d">Resets --</div>
+
+        <!-- Gauge Charts (Claude) -->
+        <div class="gauge-row" id="claude-gauge-row">
+          <div class="gauge-card">
+            <div class="gauge-title">5-Hour Window</div>
+            <canvas id="gauge-5h"></canvas>
+            <div class="gauge-reset" id="reset-5h">Resets --</div>
+          </div>
+          <div class="gauge-card">
+            <div class="gauge-title">7-Day Window</div>
+            <canvas id="gauge-7d"></canvas>
+            <div class="gauge-reset" id="reset-7d">Resets --</div>
+          </div>
+        </div>
+
+        <!-- Non-Claude provider quota info -->
+        <div id="provider-quota-info" style="display:none;"></div>
+
+        <!-- Extra Usage (if enabled) -->
+        <div class="usage-section" id="extra-section" style="display:none;">
+          <div class="usage-header">
+            <span class="usage-label">Extra Usage</span>
+            <span class="usage-value" id="extra-value">$0.00</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill purple" id="bar-extra" style="width: 0%"></div>
+          </div>
+          <div class="usage-detail" id="extra-detail"></div>
+        </div>
+
+        <!-- Per-Model Breakdown (7 day) -->
+        <div id="model-section" class="model-section" style="display:none;">
+          <div class="section-title">Per-Model (7 day)</div>
+          <div id="model-breakdown"></div>
+        </div>
+
+        <!-- 7-Day Chart -->
+        <div class="chart-section">
+          <div class="section-title" id="chart-section-title">Last 7 Days</div>
+          <div class="chart-container">
+            <canvas id="usage-chart"></canvas>
+          </div>
+          <div class="chart-legend" id="chart-legend"></div>
+        </div>
+
+      </div>
+
+      <!-- ===== DETAYLI TAB ===== -->
+      <div id="tab-content-detayli" class="tab-content" style="display:none;">
+        <!-- Filter Bar -->
+        <div class="detail-filter-bar">
+          <select id="filter-provider" class="detail-select">
+            <option value="">Tüm Provider'lar</option>
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+            <option value="gemini">Gemini</option>
+            <option value="cursor">Cursor</option>
+          </select>
+          <select id="detail-model-filter" class="detail-select">
+            <option value="all">Tüm Modeller</option>
+          </select>
+          <select id="detail-days-filter" class="detail-select">
+            <option value="7">Son 7 gün</option>
+            <option value="30" selected>Son 30 gün</option>
+            <option value="90">Son 90 gün</option>
+            <option value="0">Tümü</option>
+          </select>
+          <button id="detail-refresh-btn" class="detail-refresh-btn" title="Yenile">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M13.65 2.35A7.96 7.96 0 0 0 8 0C3.58 0 0 3.58 0 8s3.58 8 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 8 14 6 6 0 1 1 8 2c1.66 0 3.14.69 4.22 1.78L9 7h7V0l-2.35 2.35z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="detail-kpi-row">
+          <div class="detail-kpi-card">
+            <div class="detail-kpi-value" id="kpi-sessions">—</div>
+            <div class="detail-kpi-label">Sessions</div>
+          </div>
+          <div class="detail-kpi-card">
+            <div class="detail-kpi-value" id="kpi-cost">—</div>
+            <div class="detail-kpi-label">Maliyet</div>
+          </div>
+          <div class="detail-kpi-card">
+            <div class="detail-kpi-value" id="kpi-turns">—</div>
+            <div class="detail-kpi-label">Turns</div>
+          </div>
+        </div>
+
+        <div class="detail-scroll">
+          <!-- Daily Token Chart -->
+          <div class="detail-card">
+            <div class="detail-card-title">Günlük Token Kullanımı</div>
+            <canvas id="daily-tokens-chart" height="120"></canvas>
+          </div>
+
+          <!-- Two small charts -->
+          <div class="detail-two-col">
+            <div class="detail-card">
+              <div class="detail-card-title">Model Dağılımı</div>
+              <canvas id="model-dist-chart" height="120"></canvas>
+            </div>
+            <div class="detail-card">
+              <div class="detail-card-title">Top Projeler</div>
+              <canvas id="project-chart" height="120"></canvas>
+            </div>
+          </div>
+
+          <!-- Recent Sessions Table -->
+          <div class="detail-card">
+            <div class="detail-card-title">Son Oturumlar</div>
+            <div class="detail-table-wrap">
+              <table class="detail-table" id="sessions-table">
+                <thead>
+                  <tr>
+                    <th>Proje</th>
+                    <th>Model</th>
+                    <th>Süre</th>
+                    <th>Turns</th>
+                    <th>Maliyet</th>
+                  </tr>
+                </thead>
+                <tbody id="sessions-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Cost by Model Table -->
+          <div class="detail-card">
+            <div class="detail-card-title">Model Bazlı Maliyet</div>
+            <div class="detail-table-wrap">
+              <table class="detail-table" id="model-cost-table">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Turns</th>
+                    <th>Input</th>
+                    <th>Output</th>
+                    <th>Maliyet</th>
+                  </tr>
+                </thead>
+                <tbody id="model-cost-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Extra Usage (if enabled) -->
-      <div class="usage-section" id="extra-section" style="display:none;">
-        <div class="usage-header">
-          <span class="usage-label">Extra Usage</span>
-          <span class="usage-value" id="extra-value">$0.00</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill purple" id="bar-extra" style="width: 0%"></div>
-        </div>
-        <div class="usage-detail" id="extra-detail"></div>
-      </div>
-
-      <!-- Per-Model Breakdown (7 day) -->
-      <div id="model-section" class="model-section" style="display:none;">
-        <div class="section-title">Per-Model (7 day)</div>
-        <div id="model-breakdown"></div>
-      </div>
-
-      <!-- 7-Day Chart -->
-      <div class="chart-section">
-        <div class="section-title">Last 7 Days</div>
-        <div class="chart-container">
-          <canvas id="usage-chart"></canvas>
-        </div>
-        <div class="chart-legend" id="chart-legend"></div>
-      </div>
-
-      <!-- Footer -->
+      <!-- Footer (always visible, outside scroll area) -->
       <div class="footer">
         <div class="update-info" id="update-info">Updated just now</div>
         <div class="footer-bottom">
@@ -94,6 +223,7 @@
               <span class="slider"></span>
             </label>
           </div>
+          <button id="settings-btn" title="Provider Ayarları" class="icon-btn">⚙️</button>
           <div class="hamburger-menu">
             <button class="hamburger-btn" id="hamburger-btn" title="Menu">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -109,6 +239,15 @@
           </div>
         </div>
       </div>
+
+      <!-- Provider Settings Panel -->
+      <div id="provider-settings-panel" style="display:none">
+        <div class="settings-header">
+          <span class="settings-title">Provider Ayarları</span>
+          <button id="settings-close" class="icon-btn">✕</button>
+        </div>
+        <div id="provider-settings-list"></div>
+      </div>
     </div>
 
     <!-- Loading overlay -->
@@ -120,8 +259,10 @@
     <div id="error-toast" class="error-toast" style="display:none;"></div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="gauge.js"></script>
   <script src="chart.js"></script>
   <script src="renderer.js"></script>
+  <script src="detailedStats.js"></script>
 </body>
 </html>
