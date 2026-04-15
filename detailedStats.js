@@ -95,11 +95,7 @@
   // ─── Data Loading ─────────────────────────────────────────────────────────
   async function loadDetailedStats() {
     try {
-      const provider = document.getElementById('filter-provider')?.value || '';
-      const result = await window.electronAPI.getDetailedStats({
-        ...currentFilters,
-        provider: provider || null
-      });
+      const result = await window.electronAPI.getDetailedStats(currentFilters);
       if (!result.success) { console.error('Stats error:', result.error); return; }
       const { summary, dailyRows, projectRows, modelRows, recentSessions } = result.data;
 
