@@ -6,7 +6,7 @@
   let chartDaily = null;
   let chartModel = null;
   let chartProject = null;
-  let currentFilters = { model: 'all', days: 30 };
+  let currentFilters = { model: 'all', days: 30, provider: null };
 
   // ─── Tab switching ────────────────────────────────────────────────────────
   function initTabs() {
@@ -30,9 +30,17 @@
 
   // ─── Filters ─────────────────────────────────────────────────────────────
   function initFilters() {
-    const modelFilter = document.getElementById('detail-model-filter');
-    const daysFilter  = document.getElementById('detail-days-filter');
-    const refreshBtn  = document.getElementById('detail-refresh-btn');
+    const providerFilter = document.getElementById('filter-provider');
+    const modelFilter    = document.getElementById('detail-model-filter');
+    const daysFilter     = document.getElementById('detail-days-filter');
+    const refreshBtn     = document.getElementById('detail-refresh-btn');
+
+    if (providerFilter) {
+      providerFilter.addEventListener('change', () => {
+        currentFilters.provider = providerFilter.value || null;
+        loadDetailedStats();
+      });
+    }
 
     if (modelFilter) {
       modelFilter.addEventListener('change', () => {
@@ -87,7 +95,11 @@
   // ─── Data Loading ─────────────────────────────────────────────────────────
   async function loadDetailedStats() {
     try {
-      const result = await window.electronAPI.getDetailedStats(currentFilters);
+      const provider = document.getElementById('filter-provider')?.value || '';
+      const result = await window.electronAPI.getDetailedStats({
+        ...currentFilters,
+        provider: provider || null
+      });
       if (!result.success) { console.error('Stats error:', result.error); return; }
       const { summary, dailyRows, projectRows, modelRows, recentSessions } = result.data;
 
