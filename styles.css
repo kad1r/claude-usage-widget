@@ -71,6 +71,7 @@ body {
   background: transparent;
   overflow: hidden;
   user-select: none;
+  zoom: 1.08;
 }
 
 #app {
