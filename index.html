@@ -12,7 +12,7 @@
 </head>
 <body>
   <div id="app">
-    <!-- Login Screen -->
+    <!-- Login Screen (shown when Claude Code is not signed in) -->
     <div id="login-screen" class="screen">
       <div class="login-container">
         <div class="login-logo">
@@ -22,16 +22,10 @@
           </svg>
         </div>
         <h2>Claude Usage</h2>
-        <p class="login-desc">Sign in with your Claude account to track usage.</p>
-        <button id="login-btn" class="btn-primary">Sign in with Claude</button>
-        <button id="skip-auth-btn" class="btn-link">Giriş yapmadan devam et →</button>
-
-        <!-- Code input (shown after browser auth) -->
-        <div id="code-section" style="display:none;">
-          <p class="code-hint">Paste the code from your browser:</p>
-          <input type="text" id="code-input" placeholder="Paste code here..." autocomplete="off">
-          <button id="submit-code-btn" class="btn-primary">Submit</button>
-        </div>
+        <p class="login-desc">Claude Code oturumu bulunamadı.</p>
+        <p class="login-desc">Terminalde şu komutu çalıştırın:</p>
+        <pre style="background:rgba(0,0,0,0.15);border-radius:8px;padding:10px 14px;font-size:13px;margin:8px 0;user-select:all;">claude login</pre>
+        <p class="login-desc" style="font-size:11px;opacity:0.6;">Giriş yaptıktan sonra uygulamayı yeniden açın.</p>
       </div>
     </div>
 
@@ -58,12 +52,6 @@
         <div class="header">
           <h1>Claude Usage</h1>
           <span class="user-email" id="user-email"></span>
-        </div>
-
-        <!-- Local-only mode notice -->
-        <div id="local-only-notice" style="display:none;">
-          <span>Claude kotası için giriş yapın</span>
-          <button id="notice-signin-btn" class="btn-link-small">Giriş yap</button>
         </div>
 
         <!-- Gauge Charts (Claude) -->

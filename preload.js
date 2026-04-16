@@ -1,8 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  startOAuth: () => ipcRenderer.invoke('start-oauth'),
-  submitOAuthCode: (code) => ipcRenderer.invoke('submit-oauth-code', code),
   checkAuth: () => ipcRenderer.invoke('check-auth'),
   fetchUsage: () => ipcRenderer.invoke('fetch-usage'),
   fetchProfile: () => ipcRenderer.invoke('fetch-profile'),

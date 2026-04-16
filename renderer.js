@@ -6,7 +6,6 @@ let lastFetchTime = null;
 let updateTimer = null;
 let historyData = { dataPoints: [] };
 let isDarkMode = false;
-let isLocalOnlyMode = false;
 
 // Chart colors
 const COLORS = {
@@ -19,10 +18,7 @@ const COLORS = {
 // DOM refs
 const loginScreen = document.getElementById('login-screen');
 const dashboardScreen = document.getElementById('dashboard-screen');
-const loginBtn = document.getElementById('login-btn');
-const codeSection = document.getElementById('code-section');
-const codeInput = document.getElementById('code-input');
-const submitCodeBtn = document.getElementById('submit-code-btn');
+
 const userEmail = document.getElementById('user-email');
 const reset5h = document.getElementById('reset-5h');
 const reset7d = document.getElementById('reset-7d');
@@ -85,17 +81,6 @@ async function init() {
 function showDashboard() {
   loginScreen.style.display = 'none';
   dashboardScreen.style.display = 'flex';
-
-  const gaugeRow = document.getElementById('claude-gauge-row');
-  const notice = document.getElementById('local-only-notice');
-  if (isLocalOnlyMode) {
-    if (gaugeRow) gaugeRow.style.display = 'none';
-    if (notice) notice.style.display = 'flex';
-  } else {
-    if (gaugeRow) gaugeRow.style.display = '';
-    if (notice) notice.style.display = 'none';
-  }
-
   initProviderTabs();
 }
 
@@ -321,9 +306,6 @@ function buildQuotaRow(label, utilization, resetsAt) {
 function showLogin() {
   loginScreen.style.display = 'flex';
   dashboardScreen.style.display = 'none';
-  codeSection.style.display = 'none';
-  codeInput.value = '';
-  loginBtn.style.display = 'block';
 }
 
 function showError(msg) {
@@ -363,21 +345,6 @@ function getBarColor(pct) {
 
 // Load data and display
 async function loadAndDisplay() {
-  if (isLocalOnlyMode) {
-    showLoading(true);
-    try {
-      await window.electronAPI.scanLocalUsage();
-      lastFetchTime = new Date();
-      updateTimestamp();
-      startUpdateTimer();
-    } catch (e) {
-      showError('Lokal tarama başarısız: ' + (e.message || ''));
-    } finally {
-      showLoading(false);
-    }
-    return;
-  }
-
   showLoading(true);
   try {
     const [usage, profile, history] = await Promise.all([
@@ -596,44 +563,10 @@ function startUpdateTimer() {
 }
 
 // Event Listeners
-loginBtn.addEventListener('click', async () => {
-  await window.electronAPI.startOAuth();
-  codeSection.style.display = 'block';
-  loginBtn.style.display = 'none';
-});
 
-document.getElementById('skip-auth-btn')?.addEventListener('click', () => {
-  isLocalOnlyMode = true;
-  showDashboard();
-  loadAndDisplay();
-});
 
-document.getElementById('notice-signin-btn')?.addEventListener('click', () => {
-  isLocalOnlyMode = false;
-  showLogin();
-});
-
-submitCodeBtn.addEventListener('click', async () => {
-  const code = codeInput.value.trim();
-  if (!code) {
-    showError('Please paste the code from your browser');
-    return;
-  }
-
-  showLoading(true);
-  try {
-    await window.electronAPI.submitOAuthCode(code);
-    showDashboard();
-    await loadAndDisplay();
-  } catch (err) {
-    showError(err.message || 'Failed to sign in');
-  } finally {
-    showLoading(false);
-  }
-});
-
-codeInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') submitCodeBtn.click();
+document.getElementById('client-id-input')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('save-client-id-btn')?.click();
 });
 
 document.getElementById('refresh-btn').addEventListener('click', () => loadAndDisplay());
@@ -654,7 +587,6 @@ document.addEventListener('click', () => {
 document.getElementById('signout-btn').addEventListener('click', async () => {
   hamburgerDropdown.classList.remove('open');
   await window.electronAPI.signOut();
-  isLocalOnlyMode = false;
   showLogin();
 });
 
