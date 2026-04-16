@@ -182,20 +182,68 @@
     const textColor = getChartTextColor();
     const labels = modelRows.map(r => shortModelName(r.model));
     const data   = modelRows.map(r => (r.input || 0) + (r.output || 0));
-    const palette = ['rgba(59,130,246,0.8)', 'rgba(34,197,94,0.8)', 'rgba(168,85,247,0.8)', 'rgba(251,146,60,0.8)', 'rgba(239,68,68,0.8)', 'rgba(20,184,166,0.8)'];
+    const total  = data.reduce((s, v) => s + v, 0);
+
+    const palette = [
+      '#3b82f6', '#22c55e', '#a855f7', '#f97316', '#ef4444', '#14b8a6', '#eab308'
+    ];
     const colors = modelRows.map((_, i) => palette[i % palette.length]);
+
+    // Center-text plugin
+    const centerTextPlugin = {
+      id: 'centerText',
+      afterDraw(chart) {
+        const { ctx, chartArea: { left, top, right, bottom } } = chart;
+        const cx = (left + right) / 2;
+        const cy = (top + bottom) / 2;
+        const totalK = total >= 1e6
+          ? (total / 1e6).toFixed(1) + 'M'
+          : total >= 1e3 ? (total / 1e3).toFixed(0) + 'K' : String(total);
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = isDark() ? '#e8e8e8' : '#1a1a1a';
+        ctx.font = 'bold 13px -apple-system, sans-serif';
+        ctx.fillText(totalK, cx, cy - 6);
+        ctx.font = '9px -apple-system, sans-serif';
+        ctx.fillStyle = textColor;
+        ctx.fillText(window.t ? window.t('chart-tokens') : 'tokens', cx, cy + 8);
+        ctx.restore();
+      }
+    };
 
     if (chartModel) chartModel.destroy();
     chartModel = new window.Chart(canvas, {
       type: 'doughnut',
-      data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 1 }] },
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: colors,
+          borderWidth: 0,
+          hoverOffset: 6
+        }]
+      },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: '68%',
         plugins: {
-          legend: { position: 'bottom', labels: { color: textColor, font: { size: 9 }, boxWidth: 10 } }
+          legend: {
+            position: 'bottom',
+            labels: {
+              color: textColor,
+              font: { size: 9 },
+              boxWidth: 8,
+              boxHeight: 8,
+              borderRadius: 4,
+              padding: 6
+            }
+          }
         }
-      }
+      },
+      plugins: [centerTextPlugin]
     });
   }
 
