@@ -974,8 +974,9 @@ body:not(.dark) .detail-card-title { color: rgba(0,0,0,0.5); }
 #provider-tabs {
   display: flex;
   gap: 4px;
-  padding: 8px 12px 0;
+  padding: 8px 12px 8px;
   flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-main);
 }
 .provider-tab {
   padding: 4px 10px;
