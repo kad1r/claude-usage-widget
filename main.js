@@ -1,7 +1,7 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, screen, shell, safeStorage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
+const os = require('os');
 const scanner = require('./scanner');
 const registry = require('./providers/registry');
 const ClaudeProvider = require('./providers/claude');
@@ -13,21 +13,14 @@ let tray = null;
 let mainWindow = null;
 
 const DATA_DIR = path.join(app.getPath('userData'), 'claude-usage');
-const CREDENTIALS_PATH = path.join(DATA_DIR, 'credentials.json');
 const HISTORY_PATH = path.join(DATA_DIR, 'history.json');
 const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json');
 
-// OAuth constants
-const REDIRECT_URI = 'https://platform.claude.com/oauth/code/callback';
-const AUTHORIZE_URL = 'https://claude.ai/oauth/authorize';
-const TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
+// Claude Code stores OAuth credentials here after `claude login`
+const CLAUDE_CODE_CREDENTIALS_PATH = path.join(os.homedir(), '.claude', '.credentials.json');
+
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 const USERINFO_URL = 'https://api.anthropic.com/api/oauth/userinfo';
-const SCOPES = ['user:profile', 'user:inference'];
-
-// PKCE state
-let codeVerifier = null;
-let oauthState = null;
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -35,42 +28,6 @@ function ensureDataDir() {
   }
 }
 
-// Credentials — encrypted via OS keychain (safeStorage / DPAPI / Keychain)
-function saveCredentials(creds) {
-  ensureDataDir();
-  const json = JSON.stringify(creds);
-  if (safeStorage.isEncryptionAvailable()) {
-    fs.writeFileSync(CREDENTIALS_PATH, safeStorage.encryptString(json));
-  } else {
-    fs.writeFileSync(CREDENTIALS_PATH, json);
-  }
-}
-
-function loadCredentials() {
-  try {
-    if (!fs.existsSync(CREDENTIALS_PATH)) return null;
-    const data = fs.readFileSync(CREDENTIALS_PATH);
-    if (safeStorage.isEncryptionAvailable()) {
-      try {
-        return JSON.parse(safeStorage.decryptString(data));
-      } catch {
-        // Migration: file is old plain-text JSON — re-save encrypted
-        const creds = JSON.parse(data.toString('utf8'));
-        saveCredentials(creds);
-        return creds;
-      }
-    }
-    return JSON.parse(data.toString('utf8'));
-  } catch (e) {
-    return null;
-  }
-}
-
-function deleteCredentials() {
-  try { fs.unlinkSync(CREDENTIALS_PATH); } catch (e) {}
-}
-
-// Settings (plain JSON — CLIENT_ID is not a secret)
 function loadSettings() {
   try {
     if (fs.existsSync(SETTINGS_PATH)) return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
@@ -83,25 +40,6 @@ function saveSettings(settings) {
   fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings));
 }
 
-function getClientId() {
-  return loadSettings().clientId || '';
-}
-
-const ALLOWED_EXTERNAL_ORIGINS = ['https://claude.ai', 'https://platform.claude.com'];
-function safeOpenExternal(url) {
-  try {
-    const { origin } = new URL(url);
-    if (!ALLOWED_EXTERNAL_ORIGINS.includes(origin)) {
-      console.warn('[openExternal] blocked:', url);
-      return;
-    }
-  } catch {
-    return;
-  }
-  shell.openExternal(url);
-}
-
-// History
 function loadHistory() {
   try {
     if (fs.existsSync(HISTORY_PATH)) {
@@ -113,27 +51,44 @@ function loadHistory() {
 
 function saveHistory(history) {
   ensureDataDir();
-  // Keep only last 30 days
   const cutoff = Date.now() - 30 * 86400 * 1000;
   history.dataPoints = history.dataPoints.filter(p => p.timestamp > cutoff);
   fs.writeFileSync(HISTORY_PATH, JSON.stringify(history));
 }
 
-// PKCE helpers
-function base64URLEncode(buffer) {
-  return buffer.toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+// Read the OAuth token that Claude Code CLI stores after `claude login`
+function loadClaudeCodeCredentials() {
+  try {
+    if (!fs.existsSync(CLAUDE_CODE_CREDENTIALS_PATH)) return null;
+    const data = JSON.parse(fs.readFileSync(CLAUDE_CODE_CREDENTIALS_PATH, 'utf8'));
+    return data?.claudeAiOauth || null;
+  } catch (e) {
+    return null;
+  }
 }
 
-function generateCodeVerifier() {
-  return base64URLEncode(crypto.randomBytes(32));
-}
+async function authorizedFetch(url) {
+  const creds = loadClaudeCodeCredentials();
+  if (!creds?.accessToken) {
+    throw new Error('Claude Code oturumu bulunamadı. Terminalde `claude login` çalıştırın.');
+  }
 
-function generateCodeChallenge(verifier) {
-  const hash = crypto.createHash('sha256').update(verifier).digest();
-  return base64URLEncode(hash);
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${creds.accessToken}`,
+      'anthropic-beta': 'oauth-2025-04-20'
+    }
+  });
+
+  if (response.status === 401) {
+    throw new Error('Oturum süresi doldu. Terminalde `claude login` çalıştırın.');
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
 }
 
 function createTrayIcon() {
@@ -205,17 +160,15 @@ async function scanAllProviders() {
 app.whenReady().then(() => {
   app.dock?.hide?.();
 
-  // Register providers
-  const claudeProvider = new ClaudeProvider(CREDENTIALS_PATH, HISTORY_PATH);
+  // ClaudeProvider.isAvailable() checks if the credentials file exists
+  const claudeProvider = new ClaudeProvider(CLAUDE_CODE_CREDENTIALS_PATH, HISTORY_PATH);
   registry.register(claudeProvider);
   registry.register(new CodexProvider());
   registry.register(new GeminiProvider());
   registry.register(new CursorProvider());
   claudeProvider.setAuthorizedFetch(authorizedFetch);
 
-  // Scan local files for all providers on startup
   scanAllProviders();
-  // Re-scan every 5 minutes
   setInterval(scanAllProviders, 5 * 60 * 1000);
 
   const icon = createTrayIcon();
@@ -240,200 +193,29 @@ app.whenReady().then(() => {
   });
 });
 
-// IPC: OAuth flow
-ipcMain.handle('start-oauth', () => {
-  codeVerifier = generateCodeVerifier();
-  oauthState = generateCodeVerifier();
-  const challenge = generateCodeChallenge(codeVerifier);
-
-  const params = new URLSearchParams({
-    code: 'true',
-    client_id: getClientId(),
-    response_type: 'code',
-    redirect_uri: REDIRECT_URI,
-    scope: SCOPES.join(' '),
-    code_challenge: challenge,
-    code_challenge_method: 'S256',
-    state: oauthState
-  });
-
-  const url = `${AUTHORIZE_URL}?${params.toString()}`;
-  safeOpenExternal(url);
-  return true;
+// IPC: Auth — reads Claude Code's own credentials, no separate sign-in flow needed
+ipcMain.handle('check-auth', () => {
+  const creds = loadClaudeCodeCredentials();
+  return creds?.accessToken != null;
 });
 
-ipcMain.handle('submit-oauth-code', async (_, rawCode) => {
-  const trimmed = rawCode.trim();
-  const parts = trimmed.split('#');
-  const code = parts[0];
+ipcMain.handle('sign-out', () => true); // No-op: session managed by Claude Code CLI
 
-  if (parts.length > 1) {
-    const returnedState = parts[1];
-    if (returnedState !== oauthState) {
-      throw new Error('OAuth state mismatch - please try again');
-    }
-  }
-
-  if (!codeVerifier) {
-    throw new Error('No pending OAuth flow');
-  }
-
-  const body = {
-    grant_type: 'authorization_code',
-    code,
-    state: oauthState || '',
-    client_id: getClientId(),
-    redirect_uri: REDIRECT_URI,
-    code_verifier: codeVerifier
-  };
-
-  const response = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Token exchange failed: HTTP ${response.status} ${text}`);
-  }
-
-  const json = await response.json();
-  if (!json.access_token) {
-    throw new Error('No access token in response');
-  }
-
-  const credentials = {
-    accessToken: json.access_token,
-    refreshToken: json.refresh_token || null,
-    expiresAt: json.expires_in ? Date.now() + json.expires_in * 1000 : null,
-    scopes: json.scope ? json.scope.split(' ') : SCOPES
-  };
-
-  saveCredentials(credentials);
-  codeVerifier = null;
-  oauthState = null;
-
-  return true;
-});
-
-// Token refresh
-async function refreshAccessToken() {
-  const creds = loadCredentials();
-  if (!creds || !creds.refreshToken) return false;
-
-  const body = {
-    grant_type: 'refresh_token',
-    refresh_token: creds.refreshToken,
-    client_id: getClientId()
-  };
-
-  if (creds.scopes && creds.scopes.length) {
-    body.scope = creds.scopes.join(' ');
-  }
-
-  try {
-    const response = await fetch(TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) return false;
-
-    const json = await response.json();
-    if (!json.access_token) return false;
-
-    const updated = {
-      accessToken: json.access_token,
-      refreshToken: json.refresh_token || creds.refreshToken,
-      expiresAt: json.expires_in ? Date.now() + json.expires_in * 1000 : creds.expiresAt,
-      scopes: json.scope ? json.scope.split(' ') : creds.scopes
-    };
-
-    saveCredentials(updated);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-async function authorizedFetch(url) {
-  let creds = loadCredentials();
-  if (!creds) throw new Error('Not signed in');
-
-  // Check if token needs refresh
-  if (creds.expiresAt && creds.expiresAt - Date.now() < 60000) {
-    await refreshAccessToken();
-    creds = loadCredentials();
-    if (!creds) throw new Error('Failed to refresh token');
-  }
-
-  let response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${creds.accessToken}`,
-      'anthropic-beta': 'oauth-2025-04-20'
-    }
-  });
-
-  // If 401, try refresh once
-  if (response.status === 401) {
-    const refreshed = await refreshAccessToken();
-    if (!refreshed) {
-      deleteCredentials();
-      throw new Error('Session expired - please sign in again');
-    }
-    creds = loadCredentials();
-    response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${creds.accessToken}`,
-        'anthropic-beta': 'oauth-2025-04-20'
-      }
-    });
-  }
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// IPC: Fetch usage
+// IPC: Usage & Profile
 ipcMain.handle('fetch-usage', async () => {
   return await authorizedFetch(USAGE_URL);
 });
 
-// IPC: Fetch profile
 ipcMain.handle('fetch-profile', async () => {
-  // Try local .claude.json first
   try {
-    const homedir = require('os').homedir();
-    const claudeConfig = path.join(homedir, '.claude.json');
+    const claudeConfig = path.join(os.homedir(), '.claude.json');
     if (fs.existsSync(claudeConfig)) {
       const config = JSON.parse(fs.readFileSync(claudeConfig, 'utf8'));
-      if (config.oauthAccount?.emailAddress) {
-        return { email: config.oauthAccount.emailAddress };
-      }
-      if (config.oauthAccount?.displayName) {
-        return { email: config.oauthAccount.displayName };
-      }
+      if (config.oauthAccount?.emailAddress) return { email: config.oauthAccount.emailAddress };
+      if (config.oauthAccount?.displayName)  return { email: config.oauthAccount.displayName };
     }
   } catch (e) {}
-
-  // Fallback to API
   return await authorizedFetch(USERINFO_URL);
-});
-
-// IPC: Check auth
-ipcMain.handle('check-auth', () => {
-  return loadCredentials() !== null;
-});
-
-// IPC: Sign out
-ipcMain.handle('sign-out', () => {
-  deleteCredentials();
-  return true;
 });
 
 // IPC: History
@@ -467,16 +249,6 @@ nativeTheme.on('updated', () => {
 
 // IPC: Quit
 ipcMain.handle('quit-app', () => app.quit());
-
-// IPC: Client ID
-ipcMain.handle('get-client-id', () => getClientId() || null);
-
-ipcMain.handle('save-client-id', (_, clientId) => {
-  const settings = loadSettings();
-  settings.clientId = clientId.trim();
-  saveSettings(settings);
-  return true;
-});
 
 // IPC: Local JSONL stats
 ipcMain.handle('scan-local-usage', () => scanAllProviders());

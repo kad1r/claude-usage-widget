@@ -12,24 +12,7 @@
 </head>
 <body>
   <div id="app">
-    <!-- Setup Screen (first launch: enter Client ID) -->
-    <div id="setup-screen" class="screen" style="display:none;">
-      <div class="login-container">
-        <div class="login-logo">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-            <circle cx="24" cy="24" r="22" fill="#D97734"/>
-            <path d="M30.5 16C30.5 16 28 14 24 14C18.5 14 14 18.5 14 24C14 29.5 18.5 34 24 34C28 34 30.5 32 30.5 32" stroke="white" stroke-width="3" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <h2>Claude Usage</h2>
-        <p class="login-desc">OAuth Client ID'nizi girin. Bunu <a href="https://console.anthropic.com/" style="color:#D97734;text-decoration:none;">Anthropic Console</a>'dan alabilirsiniz.</p>
-        <input type="text" id="client-id-input" placeholder="OAuth Client ID..." autocomplete="off" style="margin-bottom:8px;">
-        <button id="save-client-id-btn" class="btn-primary">Devam Et</button>
-        <div id="client-id-error" style="display:none; color:#ff6b6b; font-size:12px; margin-top:6px;"></div>
-      </div>
-    </div>
-
-    <!-- Login Screen -->
+    <!-- Login Screen (shown when Claude Code is not signed in) -->
     <div id="login-screen" class="screen">
       <div class="login-container">
         <div class="login-logo">
@@ -39,15 +22,10 @@
           </svg>
         </div>
         <h2>Claude Usage</h2>
-        <p class="login-desc">Sign in with your Claude account to track usage.</p>
-        <button id="login-btn" class="btn-primary">Sign in with Claude</button>
-
-        <!-- Code input (shown after browser auth) -->
-        <div id="code-section" style="display:none;">
-          <p class="code-hint">Paste the code from your browser:</p>
-          <input type="text" id="code-input" placeholder="Paste code here..." autocomplete="off">
-          <button id="submit-code-btn" class="btn-primary">Submit</button>
-        </div>
+        <p class="login-desc">Claude Code oturumu bulunamadı.</p>
+        <p class="login-desc">Terminalde şu komutu çalıştırın:</p>
+        <pre style="background:rgba(0,0,0,0.15);border-radius:8px;padding:10px 14px;font-size:13px;margin:8px 0;user-select:all;">claude login</pre>
+        <p class="login-desc" style="font-size:11px;opacity:0.6;">Giriş yaptıktan sonra uygulamayı yeniden açın.</p>
       </div>
     </div>
 

@@ -18,10 +18,7 @@ const COLORS = {
 // DOM refs
 const loginScreen = document.getElementById('login-screen');
 const dashboardScreen = document.getElementById('dashboard-screen');
-const loginBtn = document.getElementById('login-btn');
-const codeSection = document.getElementById('code-section');
-const codeInput = document.getElementById('code-input');
-const submitCodeBtn = document.getElementById('submit-code-btn');
+
 const userEmail = document.getElementById('user-email');
 const reset5h = document.getElementById('reset-5h');
 const reset7d = document.getElementById('reset-7d');
@@ -67,12 +64,6 @@ async function init() {
     applyTheme(dark);
     updateChart();
   });
-
-  const clientId = await window.electronAPI.getClientId();
-  if (!clientId) {
-    document.getElementById('setup-screen').style.display = 'flex';
-    return;
-  }
 
   const isAuth = await window.electronAPI.checkAuth();
   const launchAtLogin = await window.electronAPI.getLaunchAtLogin();
@@ -315,9 +306,6 @@ function buildQuotaRow(label, utilization, resetsAt) {
 function showLogin() {
   loginScreen.style.display = 'flex';
   dashboardScreen.style.display = 'none';
-  codeSection.style.display = 'none';
-  codeInput.value = '';
-  loginBtn.style.display = 'block';
 }
 
 function showError(msg) {
@@ -575,52 +563,7 @@ function startUpdateTimer() {
 }
 
 // Event Listeners
-document.getElementById('save-client-id-btn')?.addEventListener('click', async () => {
-  const input = document.getElementById('client-id-input');
-  const errorEl = document.getElementById('client-id-error');
-  const id = input?.value?.trim();
-  if (!id) {
-    errorEl.textContent = 'Lütfen bir Client ID girin.';
-    errorEl.style.display = 'block';
-    return;
-  }
-  errorEl.style.display = 'none';
-  await window.electronAPI.saveClientId(id);
-  document.getElementById('setup-screen').style.display = 'none';
-  const launchAtLogin = await window.electronAPI.getLaunchAtLogin();
-  launchToggle.checked = launchAtLogin;
-  loginScreen.style.display = 'flex';
-});
 
-loginBtn.addEventListener('click', async () => {
-  await window.electronAPI.startOAuth();
-  codeSection.style.display = 'block';
-  loginBtn.style.display = 'none';
-});
-
-
-submitCodeBtn.addEventListener('click', async () => {
-  const code = codeInput.value.trim();
-  if (!code) {
-    showError('Please paste the code from your browser');
-    return;
-  }
-
-  showLoading(true);
-  try {
-    await window.electronAPI.submitOAuthCode(code);
-    showDashboard();
-    await loadAndDisplay();
-  } catch (err) {
-    showError(err.message || 'Failed to sign in');
-  } finally {
-    showLoading(false);
-  }
-});
-
-codeInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') submitCodeBtn.click();
-});
 
 document.getElementById('client-id-input')?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('save-client-id-btn')?.click();

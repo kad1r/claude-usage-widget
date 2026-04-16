@@ -1,8 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  startOAuth: () => ipcRenderer.invoke('start-oauth'),
-  submitOAuthCode: (code) => ipcRenderer.invoke('submit-oauth-code', code),
   checkAuth: () => ipcRenderer.invoke('check-auth'),
   fetchUsage: () => ipcRenderer.invoke('fetch-usage'),
   fetchProfile: () => ipcRenderer.invoke('fetch-profile'),
@@ -20,7 +18,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchAllProvidersQuota: () => ipcRenderer.invoke('fetch-all-providers-quota'),
   getProvidersList: () => ipcRenderer.invoke('get-providers-list'),
   saveProviderSettings: (opts) => ipcRenderer.invoke('save-provider-settings', opts),
-  scanProviderLocal: (opts) => ipcRenderer.invoke('scan-provider-local', opts),
-  getClientId: () => ipcRenderer.invoke('get-client-id'),
-  saveClientId: (id) => ipcRenderer.invoke('save-client-id', id)
+  scanProviderLocal: (opts) => ipcRenderer.invoke('scan-provider-local', opts)
 });
