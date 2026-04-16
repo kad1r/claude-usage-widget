@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, screen, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -25,6 +25,29 @@ const USERINFO_URL = 'https://api.anthropic.com/api/oauth/userinfo';
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+// ─── safeStorage helpers ──────────────────────────────────────────────────────
+// Encrypts using OS keychain (Windows DPAPI / macOS Keychain).
+// Falls back to plaintext if encryption is unavailable (e.g. headless Linux).
+function encryptApiKey(plaintext) {
+  if (!plaintext) return null;
+  if (safeStorage.isEncryptionAvailable()) {
+    return safeStorage.encryptString(plaintext).toString('base64');
+  }
+  console.warn('[safeStorage] Encryption not available — storing API key as plaintext');
+  return plaintext;
+}
+
+function decryptApiKey(stored) {
+  if (!stored) return null;
+  if (!safeStorage.isEncryptionAvailable()) return stored;
+  try {
+    return safeStorage.decryptString(Buffer.from(stored, 'base64'));
+  } catch {
+    // Migration: value was stored as plaintext before safeStorage was introduced
+    return stored;
   }
 }
 
@@ -298,11 +321,23 @@ ipcMain.handle('save-provider-settings', async (event, { providerId, apiKey, ena
     db.prepare(`
       INSERT OR REPLACE INTO providers (id, enabled, api_key)
       VALUES (?, ?, ?)
-    `).run(providerId, enabled ? 1 : 0, apiKey || null);
+    `).run(providerId, enabled ? 1 : 0, encryptApiKey(apiKey || null));
   } finally {
     db?.close();
   }
   return { ok: true };
+});
+
+ipcMain.handle('get-provider-api-key', async (event, { providerId }) => {
+  const scannerModule = require('./providers/claude/scanner');
+  let db;
+  try {
+    db = scannerModule.openDb();
+    const row = db.prepare('SELECT api_key FROM providers WHERE id = ?').get(providerId);
+    return { key: decryptApiKey(row?.api_key || null) };
+  } finally {
+    db?.close();
+  }
 });
 
 ipcMain.handle('scan-provider-local', async (event, { providerId }) => {

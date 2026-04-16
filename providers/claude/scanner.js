@@ -126,7 +126,7 @@ function scanFile(db, filePath) {
 
     for (const line of lines) {
       let record;
-      try { record = JSON.parse(line); } catch (e) { continue; }
+      try { record = JSON.parse(line); } catch (e) { console.warn('[claude/scanner] JSON parse error in', filePath, ':', e.message); continue; }
 
       if (record.type !== 'assistant') continue;
       const usage = record.message?.usage;
