@@ -22,8 +22,8 @@
           </svg>
         </div>
         <h2>Claude Usage</h2>
-        <p class="login-desc">Claude Code oturumu bulunamadı.</p>
-        <p class="login-desc">Terminalde şu komutu çalıştırın:</p>
+        <p class="login-desc" data-i18n="login-not-found">Claude Code oturumu bulunamadı.</p>
+        <p class="login-desc" data-i18n="login-instructions">Terminalde şu komutu çalıştırın:</p>
         <pre style="background:rgba(0,0,0,0.15);border-radius:8px;padding:10px 14px;font-size:13px;margin:8px 0;user-select:all;">claude login</pre>
         <p class="login-desc" style="font-size:11px;opacity:0.6;">Giriş yaptıktan sonra uygulamayı yeniden açın.</p>
       </div>
@@ -40,7 +40,7 @@
 
       <!-- Unified provider summary bar -->
       <div id="provider-summary-bar" style="display:none">
-        <div class="summary-title">Tüm Provider'lar</div>
+        <div class="summary-title" id="summary-title">Tüm Provider'lar</div>
         <div id="provider-summary-items"></div>
       </div>
 
@@ -57,12 +57,12 @@
         <!-- Gauge Charts (Claude) -->
         <div class="gauge-row" id="claude-gauge-row">
           <div class="gauge-card">
-            <div class="gauge-title">5-Hour Window</div>
+            <div class="gauge-title" data-i18n="gauge-5h">5-Hour Window</div>
             <canvas id="gauge-5h"></canvas>
             <div class="gauge-reset" id="reset-5h">Resets --</div>
           </div>
           <div class="gauge-card">
-            <div class="gauge-title">7-Day Window</div>
+            <div class="gauge-title" data-i18n="gauge-7d">7-Day Window</div>
             <canvas id="gauge-7d"></canvas>
             <div class="gauge-reset" id="reset-7d">Resets --</div>
           </div>
@@ -85,7 +85,7 @@
 
         <!-- Per-Model Breakdown (7 day) -->
         <div id="model-section" class="model-section" style="display:none;">
-          <div class="section-title">Per-Model (7 day)</div>
+          <div class="section-title" data-i18n="per-model-title">Per-Model (7 day)</div>
           <div id="model-breakdown"></div>
         </div>
 
@@ -105,20 +105,20 @@
         <!-- Filter Bar -->
         <div class="detail-filter-bar">
           <select id="filter-provider" class="detail-select">
-            <option value="">Tüm Provider'lar</option>
+            <option value="" data-i18n="all-providers">Tüm Provider'lar</option>
             <option value="claude">Claude</option>
             <option value="codex">Codex</option>
             <option value="gemini">Gemini</option>
             <option value="cursor">Cursor</option>
           </select>
           <select id="detail-model-filter" class="detail-select">
-            <option value="all">Tüm Modeller</option>
+            <option value="all" data-i18n="all-models">Tüm Modeller</option>
           </select>
           <select id="detail-days-filter" class="detail-select">
-            <option value="7">Son 7 gün</option>
-            <option value="30" selected>Son 30 gün</option>
-            <option value="90">Son 90 gün</option>
-            <option value="0">Tümü</option>
+            <option value="7"  data-i18n="last-7d">Son 7 gün</option>
+            <option value="30" data-i18n="last-30d" selected>Son 30 gün</option>
+            <option value="90" data-i18n="last-90d">Son 90 gün</option>
+            <option value="0"  data-i18n="all-time">Tümü</option>
           </select>
           <button id="detail-refresh-btn" class="detail-refresh-btn" title="Yenile">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -131,49 +131,49 @@
         <div class="detail-kpi-row">
           <div class="detail-kpi-card">
             <div class="detail-kpi-value" id="kpi-sessions">—</div>
-            <div class="detail-kpi-label">Sessions</div>
+            <div class="detail-kpi-label" data-i18n="kpi-sessions">Oturum</div>
           </div>
           <div class="detail-kpi-card">
             <div class="detail-kpi-value" id="kpi-cost">—</div>
-            <div class="detail-kpi-label">Maliyet</div>
+            <div class="detail-kpi-label" data-i18n="kpi-cost">Maliyet</div>
           </div>
           <div class="detail-kpi-card">
             <div class="detail-kpi-value" id="kpi-turns">—</div>
-            <div class="detail-kpi-label">Turns</div>
+            <div class="detail-kpi-label" data-i18n="kpi-turns">Dönüş</div>
           </div>
         </div>
 
         <div class="detail-scroll">
           <!-- Daily Token Chart -->
           <div class="detail-card">
-            <div class="detail-card-title">Günlük Token Kullanımı</div>
+            <div class="detail-card-title" data-i18n="card-daily-tokens">Günlük Token Kullanımı</div>
             <canvas id="daily-tokens-chart" height="120"></canvas>
           </div>
 
           <!-- Two small charts -->
           <div class="detail-two-col">
             <div class="detail-card">
-              <div class="detail-card-title">Model Dağılımı</div>
+              <div class="detail-card-title" data-i18n="card-model-dist">Model Dağılımı</div>
               <canvas id="model-dist-chart" height="120"></canvas>
             </div>
             <div class="detail-card">
-              <div class="detail-card-title">Top Projeler</div>
+              <div class="detail-card-title" data-i18n="card-top-projects">Top Projeler</div>
               <canvas id="project-chart" height="120"></canvas>
             </div>
           </div>
 
           <!-- Recent Sessions Table -->
           <div class="detail-card">
-            <div class="detail-card-title">Son Oturumlar</div>
+            <div class="detail-card-title" data-i18n="card-recent-sessions">Son Oturumlar</div>
             <div class="detail-table-wrap">
               <table class="detail-table" id="sessions-table">
                 <thead>
                   <tr>
-                    <th>Proje</th>
-                    <th>Model</th>
-                    <th>Süre</th>
-                    <th>Turns</th>
-                    <th>Maliyet</th>
+                    <th data-i18n="th-project">Proje</th>
+                    <th data-i18n="th-model">Model</th>
+                    <th data-i18n="th-duration">Süre</th>
+                    <th data-i18n="th-turns">Dönüş</th>
+                    <th data-i18n="th-cost">Maliyet</th>
                   </tr>
                 </thead>
                 <tbody id="sessions-tbody"></tbody>
@@ -183,16 +183,16 @@
 
           <!-- Cost by Model Table -->
           <div class="detail-card">
-            <div class="detail-card-title">Model Bazlı Maliyet</div>
+            <div class="detail-card-title" data-i18n="card-model-cost">Model Bazlı Maliyet</div>
             <div class="detail-table-wrap">
               <table class="detail-table" id="model-cost-table">
                 <thead>
                   <tr>
-                    <th>Model</th>
-                    <th>Turns</th>
-                    <th>Input</th>
-                    <th>Output</th>
-                    <th>Maliyet</th>
+                    <th data-i18n="th-model">Model</th>
+                    <th data-i18n="th-turns">Dönüş</th>
+                    <th data-i18n="th-input">Giriş</th>
+                    <th data-i18n="th-output">Çıkış</th>
+                    <th data-i18n="th-cost">Maliyet</th>
                   </tr>
                 </thead>
                 <tbody id="model-cost-tbody"></tbody>
@@ -212,12 +212,13 @@
             </svg>
           </button>
           <div class="launch-toggle">
-            <span>Launch at Login</span>
+            <span data-i18n="launch-at-login">Launch at Login</span>
             <label class="switch">
               <input type="checkbox" id="launch-toggle">
               <span class="slider"></span>
             </label>
           </div>
+          <button id="lang-btn" class="lang-btn">TR</button>
           <button id="settings-btn" title="Provider Ayarları" class="icon-btn">⚙️</button>
           <div class="hamburger-menu">
             <button class="hamburger-btn" id="hamburger-btn" title="Menu">
@@ -238,7 +239,7 @@
       <!-- Provider Settings Panel -->
       <div id="provider-settings-panel" style="display:none">
         <div class="settings-header">
-          <span class="settings-title">Provider Ayarları</span>
+          <span class="settings-title" id="settings-title">Provider Ayarları</span>
           <button id="settings-close" class="icon-btn">✕</button>
         </div>
         <div id="provider-settings-list"></div>

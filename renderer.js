@@ -564,11 +564,6 @@ function startUpdateTimer() {
 
 // Event Listeners
 
-
-document.getElementById('client-id-input')?.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('save-client-id-btn')?.click();
-});
-
 document.getElementById('refresh-btn').addEventListener('click', () => loadAndDisplay());
 
 // Hamburger menu
@@ -598,6 +593,141 @@ launchToggle.addEventListener('change', () => {
   window.electronAPI.setLaunchAtLogin(launchToggle.checked);
 });
 
+// ─── Language Toggle ──────────────────────────────────────────────────────
+let currentLang = 'tr';
+
+const TRANSLATIONS = {
+  tr: {
+    'tab-ozet':            'Özet',
+    'tab-detayli':         'Detaylı',
+    'summary-title':       'Tüm Provider\'lar',
+    'chart-section-title': 'Son 7 Gün',
+    'gauge-5h':            '5 Saatlik Pencere',
+    'gauge-7d':            '7 Günlük Pencere',
+    'per-model-title':     'Model Bazlı (7 gün)',
+    'all-providers':       'Tüm Provider\'lar',
+    'all-models':          'Tüm Modeller',
+    'last-7d':             'Son 7 gün',
+    'last-30d':            'Son 30 gün',
+    'last-90d':            'Son 90 gün',
+    'all-time':            'Tümü',
+    'kpi-sessions':        'Oturum',
+    'kpi-cost':            'Maliyet',
+    'kpi-turns':           'Dönüş',
+    'card-daily-tokens':   'Günlük Token Kullanımı',
+    'card-model-dist':     'Model Dağılımı',
+    'card-top-projects':   'Top Projeler',
+    'card-recent-sessions':'Son Oturumlar',
+    'card-model-cost':     'Model Bazlı Maliyet',
+    'th-project':          'Proje',
+    'th-model':            'Model',
+    'th-duration':         'Süre',
+    'th-turns':            'Dönüş',
+    'th-cost':             'Maliyet',
+    'th-input':            'Giriş',
+    'th-output':           'Çıkış',
+    'settings-title':      'Provider Ayarları',
+    'launch-at-login':     'Başlangıçta Aç',
+    'signout-btn':         'Çıkış Yap',
+    'quit-btn':            'Kapat',
+    'login-not-found':     'Claude Code oturumu bulunamadı.',
+    'login-instructions':  'Terminalde şu komutu çalıştırın:',
+    'status-active':       '● Aktif',
+    'status-not-found':    '○ Bulunamadı',
+    'api-key-placeholder': 'API Key (isteğe bağlı)',
+    'save-btn':            'Kaydet',
+    'save-success':        '✓ Kaydedildi',
+    'save-error':          '✗ Hata',
+    'gauge-critical':      'Kritik',
+    'gauge-high':          'Yüksek',
+    'gauge-warning':       'Uyarı',
+    'gauge-moderate':      'Orta',
+    'gauge-normal':        'Normal',
+    'gauge-low':           'Düşük',
+    'collecting-data':     'Veri bekleniyor...',
+    'chart-tokens':        'token',
+  },
+  en: {
+    'tab-ozet':            'Overview',
+    'tab-detayli':         'Detailed',
+    'summary-title':       'All Providers',
+    'chart-section-title': 'Last 7 Days',
+    'gauge-5h':            '5-Hour Window',
+    'gauge-7d':            '7-Day Window',
+    'per-model-title':     'Per-Model (7 day)',
+    'all-providers':       'All Providers',
+    'all-models':          'All Models',
+    'last-7d':             'Last 7 days',
+    'last-30d':            'Last 30 days',
+    'last-90d':            'Last 90 days',
+    'all-time':            'All time',
+    'kpi-sessions':        'Sessions',
+    'kpi-cost':            'Cost',
+    'kpi-turns':           'Turns',
+    'card-daily-tokens':   'Daily Token Usage',
+    'card-model-dist':     'Model Distribution',
+    'card-top-projects':   'Top Projects',
+    'card-recent-sessions':'Recent Sessions',
+    'card-model-cost':     'Cost by Model',
+    'th-project':          'Project',
+    'th-model':            'Model',
+    'th-duration':         'Duration',
+    'th-turns':            'Turns',
+    'th-cost':             'Cost',
+    'th-input':            'Input',
+    'th-output':           'Output',
+    'settings-title':      'Provider Settings',
+    'launch-at-login':     'Launch at Login',
+    'signout-btn':         'Sign Out',
+    'quit-btn':            'Quit',
+    'login-not-found':     'Claude Code session not found.',
+    'login-instructions':  'Run the following command in your terminal:',
+    'status-active':       '● Active',
+    'status-not-found':    '○ Not Found',
+    'api-key-placeholder': 'API Key (optional)',
+    'save-btn':            'Save',
+    'save-success':        '✓ Saved',
+    'save-error':          '✗ Error',
+    'gauge-critical':      'Critical',
+    'gauge-high':          'High',
+    'gauge-warning':       'Warning',
+    'gauge-moderate':      'Moderate',
+    'gauge-normal':        'Normal',
+    'gauge-low':           'Low',
+    'collecting-data':     'Collecting data...',
+    'chart-tokens':        'tokens',
+  }
+};
+
+// Global translation helper — also used by detailedStats.js and gauge.js
+window.t = (key) => TRANSLATIONS[currentLang]?.[key] ?? key;
+
+function applyLanguage(lang) {
+  // Update all data-i18n elements
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    const text = TRANSLATIONS[lang]?.[key];
+    if (text) {
+      if (el.tagName === 'INPUT' && el.type !== 'hidden') {
+        el.placeholder = text;
+      } else {
+        el.textContent = text;
+      }
+    }
+  });
+  // Also update elements targeted by ID that have translations
+  ['tab-ozet','tab-detayli','summary-title','chart-section-title','settings-title','signout-btn','quit-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && TRANSLATIONS[lang][id]) el.textContent = TRANSLATIONS[lang][id];
+  });
+}
+
+document.getElementById('lang-btn')?.addEventListener('click', () => {
+  currentLang = currentLang === 'tr' ? 'en' : 'tr';
+  document.getElementById('lang-btn').textContent = currentLang.toUpperCase();
+  applyLanguage(currentLang);
+});
+
 // Auto-refresh every 5 minutes
 setInterval(() => {
   if (dashboardScreen.style.display !== 'none') {
@@ -622,6 +752,10 @@ async function renderProviderSettings() {
     const row = document.createElement('div');
     row.className = 'provider-setting-row';
 
+    // Top row: icon + name + status badge
+    const top = document.createElement('div');
+    top.className = 'provider-setting-top';
+
     const icon = document.createElement('span');
     icon.className = 'provider-icon';
     icon.textContent = p.icon;
@@ -632,38 +766,45 @@ async function renderProviderSettings() {
 
     const badge = document.createElement('span');
     badge.className = 'provider-status-badge' + (p.available ? ' available' : '');
-    badge.textContent = p.available ? 'Aktif' : 'Bulunamadı';
+    badge.textContent = p.available ? window.t('status-active') : window.t('status-not-found');
+
+    top.appendChild(icon);
+    top.appendChild(label);
+    top.appendChild(badge);
+
+    // Bottom row: API key input + save button
+    const bottom = document.createElement('div');
+    bottom.className = 'provider-setting-bottom';
 
     const apiKeyInput = document.createElement('input');
     apiKeyInput.type = 'password';
     apiKeyInput.className = 'provider-api-key-input';
-    apiKeyInput.placeholder = 'API Key (isteğe bağlı)';
+    apiKeyInput.placeholder = window.t('api-key-placeholder');
     apiKeyInput.dataset.provider = p.id;
-    // Don't pre-fill API key for security
 
     const saveBtn = document.createElement('button');
-    saveBtn.className = 'icon-btn';
-    saveBtn.textContent = 'Kaydet';
-    saveBtn.style.fontSize = '11px';
+    saveBtn.className = 'provider-save-btn';
+    saveBtn.textContent = window.t('save-btn');
     saveBtn.addEventListener('click', async () => {
       const apiKey = apiKeyInput.value.trim();
       try {
         await window.electronAPI.saveProviderSettings({ providerId: p.id, apiKey: apiKey || null, enabled: true });
-        saveBtn.textContent = '✓';
-        setTimeout(() => { saveBtn.textContent = 'Kaydet'; }, 1500);
+        saveBtn.textContent = window.t('save-success');
+        setTimeout(() => { saveBtn.textContent = window.t('save-btn'); }, 1500);
       } catch (e) {
-        saveBtn.textContent = '✗';
-        setTimeout(() => { saveBtn.textContent = 'Kaydet'; }, 1500);
+        saveBtn.textContent = window.t('save-error');
+        setTimeout(() => { saveBtn.textContent = window.t('save-btn'); }, 1500);
       }
     });
 
-    row.appendChild(icon);
-    row.appendChild(label);
-    row.appendChild(badge);
-    row.appendChild(apiKeyInput);
-    row.appendChild(saveBtn);
+    bottom.appendChild(apiKeyInput);
+    bottom.appendChild(saveBtn);
+
+    row.appendChild(top);
+    row.appendChild(bottom);
     list.appendChild(row);
   }
+
 }
 
 function initSettingsPanel() {

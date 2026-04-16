@@ -40,12 +40,13 @@ class GaugeChart {
   }
 
   getStatusLabel(pct) {
-    if (pct >= 95) return 'Critical';
-    if (pct >= 85) return 'High';
-    if (pct >= 70) return 'Warning';
-    if (pct >= 50) return 'Moderate';
-    if (pct >= 25) return 'Normal';
-    return 'Low';
+    const T = window.t || (k => k);
+    if (pct >= 95) return T('gauge-critical');
+    if (pct >= 85) return T('gauge-high');
+    if (pct >= 70) return T('gauge-warning');
+    if (pct >= 50) return T('gauge-moderate');
+    if (pct >= 25) return T('gauge-normal');
+    return T('gauge-low');
   }
 
   getStatusColor(pct) {
